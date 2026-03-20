@@ -4,6 +4,14 @@
 
 SovereignDNA is a fully local DNA analysis application that turns your raw genetic data (23andMe, AncestryDNA, VCF) into actionable insights — without your genomic data ever leaving your machine.
 
+## Screenshots
+
+| Research Workbench | Analysis Results |
+|---|---|
+| ![Research Workbench](screenshots/research-workbench.png) | ![Research Results](screenshots/research-results.png) |
+
+![Karyogram](screenshots/karyogram.png)
+
 ## Why
 
 You downloaded your raw data from 23andMe. Now what? Cloud services want you to upload it again. SovereignDNA keeps it local and gives you:
