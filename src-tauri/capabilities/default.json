@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capabilities for Genome Studio — scoped for privacy",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "fs:default",
+    "shell:default"
+  ]
+}
