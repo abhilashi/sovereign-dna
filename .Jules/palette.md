@@ -1,0 +1,3 @@
+## 2024-05-18 - Interactive Cards Missing Keyboard Accessibility
+**Learning:** Using semantic `<div onClick={...}>` for custom interactive components (like `Card.tsx`) completely removes them from the document tab order. In this app, this prevents keyboard-only users and screen readers from accessing critical expandable content, specifically in the Health Risks and Pharmacogenomics sections where `Card` is used as a toggle.
+**Action:** Always ensure that custom interactive components built on non-interactive elements receive `role="button"`, `tabIndex={0}`, an appropriate `onKeyDown` handler (for `Enter` and `Space`), and visible focus styles to restore native button-like accessibility.
