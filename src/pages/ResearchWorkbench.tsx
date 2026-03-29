@@ -358,7 +358,7 @@ export default function ResearchWorkbench() {
       <div className="w-[200px] shrink-0 border-r border-border flex flex-col bg-surface">
           {/* New thread button */}
           <div className="px-3 py-2 border-b border-border">
-            <button onClick={startNewThread} className="w-full text-left px-2 py-1.5 text-[11px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent transition-colors">
+            <button aria-label="Start new thread" onClick={startNewThread} className="w-full text-left px-2 py-1.5 text-[11px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent transition-colors">
               + New thread
             </button>
           </div>
@@ -377,9 +377,9 @@ export default function ResearchWorkbench() {
           {!claudeApiKey && (
             <div className="px-3 py-2 border-t border-border">
               <div className="flex gap-1">
-                <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveApiKey(); }}
+                <input aria-label="Claude API key" type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveApiKey(); }}
                   placeholder="Claude API key" className="flex-1 min-w-0 px-1.5 py-1 text-[9px] border border-border rounded-sm bg-white text-text focus:outline-none focus:border-accent font-mono" />
-                <button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
+                <button aria-label="Save API key" onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
               </div>
             </div>
           )}
@@ -563,11 +563,11 @@ export default function ResearchWorkbench() {
           <span className="w-4 h-4 rounded-full bg-risk-low flex items-center justify-center shrink-0" title="Processed locally">
             <span className="text-white text-[7px]">{'\uD83D\uDD12'}</span>
           </span>
-          <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
+          <input aria-label="Ask about your genome" ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Ask about your genome..."
             disabled={loading || streaming}
             className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
-          <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
+          <button aria-label="Submit query" onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
             className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
         </div>
       </div>
