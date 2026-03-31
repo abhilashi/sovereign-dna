@@ -379,7 +379,7 @@ export default function ResearchWorkbench() {
               <div className="flex gap-1">
                 <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveApiKey(); }}
                   placeholder="Claude API key" className="flex-1 min-w-0 px-1.5 py-1 text-[9px] border border-border rounded-sm bg-white text-text focus:outline-none focus:border-accent font-mono" />
-                <button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
+                <button aria-label="Save Claude API key" onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
               </div>
             </div>
           )}
@@ -567,7 +567,7 @@ export default function ResearchWorkbench() {
             placeholder="Ask about your genome..."
             disabled={loading || streaming}
             className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
-          <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
+          <button aria-label="Submit query" onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
             className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
         </div>
       </div>
