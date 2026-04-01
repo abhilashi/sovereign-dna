@@ -20,11 +20,13 @@ export function useKaryogramData(genomeId: number | null) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!genomeId) {
-      setLoading(false);
+      if (!cancelled) setLoading(false);
       return;
     }
-    let cancelled = false;
+
     setLoading(true);
 
     Promise.all([

@@ -9,14 +9,19 @@ export default function DashboardLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    if (!activeGenomeId) { setResearchBadge(0); return; }
     let cancelled = false;
+
     async function fetchBadge() {
+      if (!activeGenomeId) {
+        if (!cancelled) setResearchBadge(0);
+        return;
+      }
       try {
-        const count = await getNewResearchCount(activeGenomeId!);
+        const count = await getNewResearchCount(activeGenomeId);
         if (!cancelled) setResearchBadge(count);
       } catch { /* ignore */ }
     }
+
     fetchBadge();
     const interval = setInterval(fetchBadge, 60000);
     return () => { cancelled = true; clearInterval(interval); };

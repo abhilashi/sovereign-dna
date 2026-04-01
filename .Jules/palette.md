@@ -1,0 +1,3 @@
+## 2026-04-01 - Keyboard Accessibility & Form Interactions
+**Learning:** For chat-like interfaces with Quick Prompts, a major UX friction point is forcing the user to click the prompt and then click the input (or move the mouse again) to submit.
+**Action:** When users click a Quick Prompt pill, automatically focus the primary text input so they can immediately press Enter to submit or modify the query without reaching for the mouse again. Additionally, ensure all interactive elements (even icon-only buttons or custom list items) have visible focus rings (`focus-visible:ring-2`) and proper ARIA labels so keyboard users understand their purpose and location.
