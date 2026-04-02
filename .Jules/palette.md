@@ -1,0 +1,3 @@
+## 2025-04-02 - Auto-focusing inputs after programmatic text insertion
+**Learning:** When users click on quick prompts or visual elements (like Karyogram findings) that programmatically populate a text input field, failing to auto-focus the input breaks their flow. They expect to be able to immediately type to refine the query or press Enter to submit, but instead are forced to reach for their mouse to manually click the input field again.
+**Action:** Always call `.focus()` on the associated input element reference immediately after programmatically setting its value from a quick action or UI shortcut.
