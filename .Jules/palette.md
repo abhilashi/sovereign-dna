@@ -1,0 +1,3 @@
+## 2025-05-18 - Quick Prompts Focus Primary Input Instead of Auto-Submitting
+**Learning:** In chat-like interfaces (e.g., Ask.tsx, ResearchWorkbench.tsx), clicking a 'Quick Prompt' pill and automatically submitting it forces the user down a path they might want to slightly tweak (e.g., changing "Caffeine metabolism" to "Caffeine metabolism in men").
+**Action:** When implementing 'Quick Prompts' or suggested queries, clicking them should populate the main text input and automatically call `focus()` on that input. This allows the user to immediately press Enter if they want the exact query, or seamlessly start typing to modify it without having to reposition their mouse to the input field manually.

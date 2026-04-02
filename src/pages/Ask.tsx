@@ -250,9 +250,9 @@ export default function Ask() {
   const handleQuickQuestion = useCallback(
     (q: string) => {
       setQuery(q);
-      handleSubmit(q);
+      inputRef.current?.focus();
     },
-    [handleSubmit],
+    [],
   );
 
   if (!activeGenomeId) {
