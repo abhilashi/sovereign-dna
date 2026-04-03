@@ -1,0 +1,3 @@
+## 2024-05-24 - Accessible Chat Prompt Inputs
+**Learning:** When users click a quick prompt or a populated query item (like a karyogram finding), they expect to be able to immediately press "Enter" to submit or start modifying the query. Without auto-focus, keyboard-reliant users and even mouse users face a disjointed experience requiring a separate click/tab back to the input.
+**Action:** When programmatically updating a chat-like input based on a quick selection, use `setTimeout(() => inputRef.current?.focus(), 0)` to immediately focus the input, allowing seamless transition to editing or submitting.
