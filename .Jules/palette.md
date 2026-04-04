@@ -1,0 +1,3 @@
+## 2024-04-04 - Auto-focus inputs on quick prompt clicks
+**Learning:** In chat-like interfaces (like Research Workbench and Ask), users frequently click quick prompts or finding pills, expecting to immediately modify the query or press Enter to submit. Without auto-focusing the input, users are forced to manually click the input field again or use a mouse to submit, breaking the keyboard flow.
+**Action:** Automatically focus the primary text input (`setTimeout(() => inputRef.current?.focus(), 0)`) whenever a prompt pill or finding is clicked to populate the query field, enabling a seamless transition to keyboard interaction.
