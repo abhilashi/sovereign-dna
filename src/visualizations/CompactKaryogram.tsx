@@ -130,7 +130,7 @@ export default function CompactKaryogram({
       const isHl = highlighted?.id === finding.id;
       const isHovered = hoveredFinding?.id === finding.id;
       const markerY = pos.y + markerZone - 4;
-      let opacity = isHl || isHovered ? 1 : hasDimming ? (relevantIds!.has(finding.id) ? 0.9 : 0.12) : 0.7;
+      const opacity = isHl || isHovered ? 1 : hasDimming ? (relevantIds!.has(finding.id) ? 0.9 : 0.12) : 0.7;
 
       // Line
       elements.push(<line key={`line-${finding.id}`} x1={pos.x} x2={pos.x} y1={markerY} y2={pos.y + markerZone + chrHeight + 2} stroke={finding.color} strokeWidth={isHl || isHovered ? 2 : 1} opacity={opacity} />);
