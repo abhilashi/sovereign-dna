@@ -566,9 +566,9 @@ export default function ResearchWorkbench() {
           <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Ask about your genome..."
             disabled={loading || streaming}
-            className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
-          <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
-            className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
+            className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm px-1 py-0.5" />
+          <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()} aria-label="Submit query"
+            className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">{'\u2192'}</button>
         </div>
       </div>
     </div>
