@@ -287,6 +287,7 @@ export default function Ask() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="What would you like to know about your genome?"
+            aria-label="Ask about your genome"
             disabled={loading}
             className="flex-1 px-4 py-3 text-sm border border-border rounded-sm bg-surface text-text placeholder:text-text-muted focus:outline-none focus:border-accent font-mono disabled:opacity-50 transition-colors"
           />
