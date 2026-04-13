@@ -1351,16 +1351,18 @@ export default function GenomeMap({
       {/* Zoom controls */}
       <div className="absolute bottom-4 left-4 flex items-center gap-2" style={{ pointerEvents: 'all', zIndex: 10 }}>
         <button
+          aria-label="Zoom out"
           onClick={(e) => { e.stopPropagation(); zoomOut(); }}
           disabled={view.zoom === 'genome'}
           className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors"
         >
           &minus;
         </button>
-        <span className="text-xs text-text-muted font-mono px-1" style={{ minWidth: 80, textAlign: 'center' }}>
+        <span aria-live="polite" className="text-xs text-text-muted font-mono px-1" style={{ minWidth: 80, textAlign: 'center' }}>
           {view.zoom === 'genome' ? 'Genome' : view.zoom === 'chromosome' ? 'Chromosome' : view.zoom === 'region' ? 'Region' : 'SNP'}
         </span>
         <button
+          aria-label="Zoom in"
           onClick={(e) => { e.stopPropagation(); zoomIn(); }}
           disabled={view.zoom === 'genome'}
           className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors"
