@@ -1,0 +1,3 @@
+## 2026-04-18 - [Interactive Text Injectors Focus Behavior]
+**Learning:** When interactive elements (like 'Quick Prompts' or Karyogram findings) are used to populate a primary text input but do not automatically submit, users can easily lose track of the focus. Clicking these prompts sets the query state but leaves the focus on the clicked button.
+**Action:** Always use a setTimeout with 0ms delay to force focus onto the populated input field (e.g. `setTimeout(() => inputRef.current?.focus(), 0)`), allowing users to immediately press Enter or seamlessly modify the query without repositioning focus manually.
