@@ -330,6 +330,7 @@ export default function ResearchWorkbench() {
     setQuery(`Tell me about ${parts.join(' - ')}`);
     setStreamSource('local');
     // Don't auto-submit — let user review/edit the query
+    setTimeout(() => inputRef.current?.focus(), 0);
   }, []);
 
   const handleSaveApiKey = useCallback(() => { if (apiKeyInput.trim()) { setClaudeApiKey(apiKeyInput.trim()); setApiKeyInput(''); } }, [apiKeyInput, setClaudeApiKey]);
@@ -379,7 +380,7 @@ export default function ResearchWorkbench() {
               <div className="flex gap-1">
                 <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveApiKey(); }}
                   placeholder="Claude API key" className="flex-1 min-w-0 px-1.5 py-1 text-[9px] border border-border rounded-sm bg-white text-text focus:outline-none focus:border-accent font-mono" />
-                <button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
+                <button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} aria-label="Save Claude API key" className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
               </div>
             </div>
           )}
@@ -435,7 +436,7 @@ export default function ResearchWorkbench() {
                   <p className="text-xs text-text-muted mb-4">Ask a question and we'll find your relevant variants, match them to research, and give you an analysis.</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {QUICK_PROMPTS.map(p => (
-                      <button key={p} onClick={() => { setQuery(p); }} disabled={loading}
+                      <button key={p} onClick={() => { setQuery(p); setTimeout(() => inputRef.current?.focus(), 0); }} disabled={loading}
                         className="px-2.5 py-1 text-[10px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-50 transition-colors">{p}</button>
                     ))}
                   </div>
@@ -568,6 +569,7 @@ export default function ResearchWorkbench() {
             disabled={loading || streaming}
             className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
           <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
+            aria-label="Send query" title="Send query"
             className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
         </div>
       </div>
