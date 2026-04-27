@@ -55,6 +55,7 @@ export default function DataTable({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
             className="w-full px-3 py-2 text-sm border border-border rounded-sm bg-surface text-text placeholder:text-text-muted focus:outline-none focus:border-accent font-sans"
           />
         </div>
