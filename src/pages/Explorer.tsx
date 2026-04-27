@@ -123,11 +123,13 @@ export default function Explorer() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search rsID, gene, or chromosome..."
+          aria-label="Search variants"
           className="flex-1 px-3 py-2 text-sm border border-border rounded-sm bg-surface text-text placeholder:text-text-muted focus:outline-none focus:border-accent font-mono"
         />
         <select
           value={chromosomeFilter ?? ''}
           onChange={(e) => setChromosomeFilter(e.target.value || null)}
+          aria-label="Filter by chromosome"
           className="px-3 py-2 text-sm border border-border rounded-sm bg-surface text-text focus:outline-none focus:border-accent"
         >
           <option value="">All chromosomes</option>
