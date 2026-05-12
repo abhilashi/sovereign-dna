@@ -1,0 +1,3 @@
+## 2024-05-12 - Ensure accessibility for motion.div Card Components
+**Learning:** Components created using Framer Motion (e.g. `motion.div`) or other generic non-semantic elements (`div`) that are intended to be interactive (like a `Card` acting as a button when `onClick` is provided) lack native button semantics and keyboard accessibility.
+**Action:** When creating custom interactive components (especially using non-semantic elements like `motion.div` or `div`), verify that `role="button"`, `tabIndex={0}`, and `onKeyDown` handlers for `Enter` and `Space` are properly implemented. Additionally, visible focus styling like `focus-visible:ring-2` should be added.
