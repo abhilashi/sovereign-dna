@@ -1,0 +1,3 @@
+## YYYY-MM-DD - Making Framer Motion components interactive
+**Learning:** Extending `React.HTMLAttributes<HTMLDivElement>` or `HTMLMotionProps` directly on components returning `motion.div` often leads to type conflicts (like `onDrag`). However, when those attributes are handled entirely within the component's implementation and not passed through props by the caller, you don't need to add them to the component's props interface at all.
+**Action:** When adding standard HTML accessibility attributes (like `role`, `tabIndex`, `onKeyDown`) internally to a component based on a single condition (like the presence of `onClick`), omit them from the component's exposed Props interface to prevent callers from trying to override them.
