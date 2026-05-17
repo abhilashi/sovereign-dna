@@ -564,10 +564,12 @@ export default function ResearchWorkbench() {
             <span className="text-white text-[7px]">{'\uD83D\uDD12'}</span>
           </span>
           <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
+            aria-label="Ask about your genome"
             placeholder="Ask about your genome..."
             disabled={loading || streaming}
             className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
           <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
+            aria-label="Submit query" title="Submit query"
             className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
         </div>
       </div>
