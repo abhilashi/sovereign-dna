@@ -198,6 +198,7 @@ export default function Explorer() {
                         {selectedSnp.snp.rsid}
                       </p>
                       <button
+                        aria-label="Close SNP details"
                         onClick={() => setSelectedSnp(null)}
                         className="text-xs text-text-muted hover:text-text"
                       >
