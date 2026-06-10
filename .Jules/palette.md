@@ -1,0 +1,3 @@
+## 2026-06-10 - Auto-focusing inputs for interactive text injectors
+**Learning:** When using chat interfaces with clickable chips (like Quick Prompts or Karyogram findings) that inject text into an input field but do not auto-submit (allowing user review/editing), the user's focus remains on the clicked chip. This interrupts the flow if they want to immediately press Enter to submit or continue typing.
+**Action:** When implementing interactive text injectors that populate an input without auto-submitting, use `setTimeout(() => inputRef.current?.focus(), 0)` to automatically transfer focus to the primary text input. This allows users to seamlessly review, edit, or submit the query without manual repositioning.
