@@ -1,0 +1,3 @@
+## 2024-06-26 - Text Injectors Should Auto-Focus
+**Learning:** When building 'Quick Prompts' or text injectors (like karyogram click handlers) that populate an input but do not auto-submit, the input field must be focused automatically. This allows users to immediately press Enter or modify the query without having to reposition their focus manually. Not focusing the input causes unnecessary friction.
+**Action:** Use `setTimeout(() => inputRef.current?.focus(), 0)` after updating the state for text injectors that populate an input but do not auto-submit. Ensure the `inputRef` is correctly attached to the target input element.
