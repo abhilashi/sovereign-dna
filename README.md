@@ -136,3 +136,11 @@ SovereignDNA is for **educational and informational purposes only**. It is not a
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+<!-- hypertribe:sponsors:start -->
+## Sponsors
+
+[![sovereign-dna Sponsors](https://api.tribe.run/tokens/GwWEE38QymH3ahy2LXDRS5AraUABXeDJ7UfQiaoGiGht/sponsors.svg)](https://tribe.run/token/GwWEE38QymH3ahy2LXDRS5AraUABXeDJ7UfQiaoGiGht)
+
+Become a sponsor on [Tribe.run](https://tribe.run/token/GwWEE38QymH3ahy2LXDRS5AraUABXeDJ7UfQiaoGiGht).
+<!-- hypertribe:sponsors:end -->
