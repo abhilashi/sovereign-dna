@@ -288,12 +288,14 @@ export default function Ask() {
             onKeyDown={handleKeyDown}
             placeholder="What would you like to know about your genome?"
             disabled={loading}
+            aria-label="Genome question"
             className="flex-1 px-4 py-3 text-sm border border-border rounded-sm bg-surface text-text placeholder:text-text-muted focus:outline-none focus:border-accent font-mono disabled:opacity-50 transition-colors"
           />
           <button
             onClick={() => handleSubmit()}
             disabled={loading || !query.trim()}
-            className="px-5 py-3 text-sm border border-border rounded-sm text-text-muted hover:text-text hover:border-accent disabled:opacity-30 transition-colors duration-100 shrink-0"
+            aria-label="Submit question"
+            className="px-5 py-3 text-sm border border-border rounded-sm text-text-muted hover:text-text hover:border-accent focus-visible:ring-2 focus-visible:ring-accent focus:outline-none disabled:opacity-30 transition-colors duration-100 shrink-0"
           >
             {loading ? '...' : 'Ask'}
           </button>
