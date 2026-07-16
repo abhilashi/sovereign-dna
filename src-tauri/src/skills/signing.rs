@@ -46,7 +46,56 @@ impl std::error::Error for SignError {}
 /// `serde_json` emits identical bytes for identical content regardless of how the
 /// source file was formatted.
 pub fn canonical_bytes(m: &SkillManifest) -> Result<Vec<u8>, SignError> {
-    serde_json::to_vec(m).map_err(|e| SignError::Serialize(e.to_string()))
+    canonical_json(m)
+}
+
+/// Generic canonical JSON bytes for any signable value composed of structs/vecs
+/// (no unordered maps), so `serde_json` emits identical bytes for identical
+/// content. Reused by the Phase-3.9 agent-definition sharing layer so agents are
+/// signed with exactly the same scheme as skills.
+pub fn canonical_json<T: Serialize>(value: &T) -> Result<Vec<u8>, SignError> {
+    serde_json::to_vec(value).map_err(|e| SignError::Serialize(e.to_string()))
+}
+
+/// Hex-encode bytes (public for reuse by the agent-sharing layer).
+pub fn hex_encode(bytes: &[u8]) -> String {
+    to_hex(bytes)
+}
+
+/// Hex-decode (public for reuse by the agent-sharing layer).
+pub fn hex_decode(s: &str) -> Result<Vec<u8>, SignError> {
+    from_hex(s)
+}
+
+/// Sign the canonical bytes of `value`, returning `(signature_hex, public_key_hex)`.
+pub fn sign_canonical<T: Serialize>(
+    value: &T,
+    key: &SigningKey,
+) -> Result<(String, String), SignError> {
+    let bytes = canonical_json(value)?;
+    let sig: Signature = key.sign(&bytes);
+    Ok((to_hex(&sig.to_bytes()), to_hex(key.verifying_key().as_bytes())))
+}
+
+/// Verify a detached signature (hex) over the canonical bytes of `value` for a
+/// given public key (hex). Does not consult any trust store.
+pub fn verify_canonical<T: Serialize>(
+    value: &T,
+    signature_hex: &str,
+    public_key_hex: &str,
+) -> Result<(), SignError> {
+    let vk_raw = from_hex(public_key_hex)?;
+    let vk_arr: [u8; 32] = vk_raw
+        .try_into()
+        .map_err(|_| SignError::Encoding("public key must be 32 bytes".into()))?;
+    let vk = VerifyingKey::from_bytes(&vk_arr).map_err(|e| SignError::Encoding(e.to_string()))?;
+    let sig_raw = from_hex(signature_hex)?;
+    let sig_arr: [u8; 64] = sig_raw
+        .try_into()
+        .map_err(|_| SignError::Encoding("signature must be 64 bytes".into()))?;
+    let sig = Signature::from_bytes(&sig_arr);
+    let bytes = canonical_json(value)?;
+    vk.verify(&bytes, &sig).map_err(|_| SignError::BadSignature)
 }
 
 fn to_hex(bytes: &[u8]) -> String {
@@ -169,6 +218,12 @@ impl TrustStore {
             .map_err(|_| SignError::Encoding("public key must be 32 bytes".into()))?;
         self.keys.insert(arr);
         Ok(())
+    }
+
+    /// Whether a public key (hex) is trusted. Public so the agent-sharing layer
+    /// (Phase 3.9) can reuse the same trust store for signed agent definitions.
+    pub fn trusts_hex(&self, hex: &str) -> bool {
+        self.contains_hex(hex)
     }
 
     fn contains_hex(&self, hex: &str) -> bool {

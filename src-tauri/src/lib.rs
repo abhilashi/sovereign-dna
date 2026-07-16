@@ -128,6 +128,11 @@ pub fn run() {
             commands::agents::get_agent_next_run,
             commands::agents::run_due_agents,
             commands::agents::preflight_egress,
+            // Agent templates + sharing (Phase 3.4 + 3.9)
+            commands::agents::list_agent_templates,
+            commands::agents::create_agent_from_template,
+            commands::agents::export_agent,
+            commands::agents::import_agent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

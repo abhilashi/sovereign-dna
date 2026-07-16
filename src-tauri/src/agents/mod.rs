@@ -22,7 +22,9 @@ pub mod memory;
 pub mod runtime;
 pub mod safety;
 pub mod scheduler;
+pub mod sharing;
 pub mod store;
+pub mod templates;
 
 use rusqlite::Connection;
 

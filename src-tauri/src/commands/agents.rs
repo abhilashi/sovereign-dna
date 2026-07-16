@@ -395,3 +395,86 @@ pub fn preflight_egress(endpoint: String, identifiers: Vec<String>) -> Result<()
         .check(&endpoint, &identifiers)
         .map_err(AppError::Analysis)
 }
+
+// ── Templates + sharing commands (Phase 3.4 + 3.9) ────────────────────
+
+/// The pre-built agent templates a user can start from.
+#[tauri::command]
+pub fn list_agent_templates() -> Result<Vec<AgentDefinition>, AppError> {
+    Ok(crate::agents::templates::builtin_templates())
+}
+
+/// Instantiate a template into a new saved agent.
+#[tauri::command]
+pub fn create_agent_from_template(
+    template_id: String,
+    new_id: String,
+    name: Option<String>,
+    db: State<'_, Database>,
+) -> Result<AgentDefinition, AppError> {
+    let def = crate::agents::templates::instantiate(&template_id, &new_id, name.as_deref())
+        .map_err(|e| AppError::Analysis(e.to_string()))?;
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::upsert_definition(&conn, &def)?;
+    Ok(def)
+}
+
+/// Export an agent as a **signed definition** (no genome data) for sharing.
+///
+/// `signing_key_hex` is the user's 32-byte Ed25519 private key in hex, supplied
+/// by the caller from secure OS storage — this layer never persists private keys.
+#[tauri::command]
+pub fn export_agent(
+    agent_id: String,
+    signing_key_hex: String,
+    db: State<'_, Database>,
+) -> Result<String, AppError> {
+    let def = {
+        let conn = db
+            .0
+            .lock()
+            .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+        store::get_definition(&conn, &agent_id)?
+    };
+    let raw = crate::skills::signing::hex_decode(&signing_key_hex)
+        .map_err(|e| AppError::Analysis(format!("bad signing key: {e}")))?;
+    let arr: [u8; 32] = raw
+        .try_into()
+        .map_err(|_| AppError::Analysis("signing key must be 32 bytes".into()))?;
+    let key = ed25519_dalek::SigningKey::from_bytes(&arr);
+    let signed = crate::agents::sharing::SignedAgentDefinition::create(def, &key)
+        .map_err(|e| AppError::Analysis(e.to_string()))?;
+    signed.to_json().map_err(|e| AppError::Analysis(e.to_string()))
+}
+
+/// Import a shared, signed agent definition. Verifies the signature against the
+/// supplied trusted public key(s), proves the definition carries no genome data,
+/// then saves it. Never imports data — only methods.
+#[tauri::command]
+pub fn import_agent(
+    signed_json: String,
+    trusted_public_keys: Vec<String>,
+    db: State<'_, Database>,
+) -> Result<AgentDefinition, AppError> {
+    let signed = crate::agents::sharing::SignedAgentDefinition::from_json(&signed_json)
+        .map_err(|e| AppError::Analysis(e.to_string()))?;
+    let mut trust = crate::skills::signing::TrustStore::new();
+    for pk in &trusted_public_keys {
+        trust
+            .add_hex(pk)
+            .map_err(|e| AppError::Analysis(format!("bad trusted key: {e}")))?;
+    }
+    let def = signed
+        .verify(&trust)
+        .map_err(|e| AppError::Analysis(e.to_string()))?
+        .clone();
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::upsert_definition(&conn, &def)?;
+    Ok(def)
+}

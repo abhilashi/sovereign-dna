@@ -58,18 +58,25 @@ impl From<signing::SignError> for RegistryError {
     }
 }
 
-/// The content id of a skill: `sha256-<hex>` over the canonical manifest bytes.
-pub fn content_id(signed: &SignedManifest) -> Result<String, RegistryError> {
-    let bytes = signing::canonical_bytes(&signed.manifest)
-        .map_err(RegistryError::Verify)?;
+/// Content address of arbitrary canonical bytes: `sha256-<hex>`. Generic so the
+/// Phase-3.9 agent-sharing layer content-addresses signed agent definitions with
+/// exactly the same scheme.
+pub fn content_address(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(&bytes);
+    hasher.update(bytes);
     let digest = hasher.finalize();
     let mut hex = String::with_capacity(64);
     for b in digest {
         hex.push_str(&format!("{b:02x}"));
     }
-    Ok(format!("sha256-{hex}"))
+    format!("sha256-{hex}")
+}
+
+/// The content id of a skill: `sha256-<hex>` over the canonical manifest bytes.
+pub fn content_id(signed: &SignedManifest) -> Result<String, RegistryError> {
+    let bytes = signing::canonical_bytes(&signed.manifest)
+        .map_err(RegistryError::Verify)?;
+    Ok(content_address(&bytes))
 }
 
 /// A skill that is installed on this device.
