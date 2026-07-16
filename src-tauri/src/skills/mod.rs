@@ -15,6 +15,7 @@
 
 pub mod engine;
 pub mod manifest;
+pub mod signing;
 
 use manifest::SkillManifest;
 
