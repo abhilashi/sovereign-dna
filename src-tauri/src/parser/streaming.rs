@@ -7,19 +7,29 @@
 //!
 //! Key pieces:
 //! - [`open_file_reader`] — a large-buffer [`BufReader`] over a file.
-//! - [`detect_and_wrap`] — sniff the file format from the first few KiB
-//!   **without consuming the stream**, then hand back a reader that still
-//!   yields the full, un-consumed input.
+//! - [`maybe_decompress`] — transparently inflate gzip/BGZF (`.gz`/`.bgz`)
+//!   streams on the fly, so compressed genomes never have to be decompressed to
+//!   disk or fully into RAM first.
+//! - [`detect_and_wrap`] — decompress if needed, then sniff the file format from
+//!   the first few KiB **without consuming the stream**, then hand back a reader
+//!   that still yields the full, un-consumed (decompressed) input.
 //! - [`parse_path_streaming`] — the end-to-end convenience path used by the
-//!   import command: open → detect → dispatch → stream into a sink.
+//!   import command: open → decompress → detect → dispatch → stream into a sink.
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, Cursor, Read};
 use std::path::Path;
 
+use flate2::read::MultiGzDecoder;
+
 use crate::error::AppError;
 
 use super::{detect_format, parser_for_format, ParseSummary, SnpSink};
+
+/// Gzip member magic bytes (`1f 8b`). Present at the start of both ordinary
+/// gzip streams and every BGZF block (BGZF is a gzip profile: a series of
+/// concatenated gzip members, each carrying a `BC` extra subfield).
+const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
 /// Number of leading bytes sniffed for format detection. `detect_format` only
 /// inspects the first 4 KiB; we peek a little more to be safe.
@@ -55,26 +65,60 @@ pub fn open_file_reader(path: &Path) -> Result<BufReader<File>, AppError> {
     Ok(BufReader::with_capacity(READER_CAPACITY, file))
 }
 
-/// Detect the genome-file format from the first [`DETECT_PEEK_BYTES`] bytes of
-/// `reader`, then return the detected format string **together with a reader
-/// that still yields the complete, un-consumed stream** (the peeked header is
-/// chained back in front of the remaining bytes).
+/// Peek up to `n` leading bytes from `reader` **without consuming them**: the
+/// returned reader still yields the complete original stream, because the peeked
+/// bytes are chained back in front of the (still-open) reader.
 ///
-/// This is the crux of streaming detection: we can decide which parser to use
-/// without ever loading the whole file — only a fixed-size header is buffered.
-pub fn detect_and_wrap<R: Read + 'static>(
+/// This is the shared primitive behind both compression sniffing and format
+/// detection — in each case we need to look at a fixed-size prefix and then hand
+/// back a reader positioned as if we had never looked.
+fn peek_prefix<R: Read + 'static>(
     mut reader: R,
+    n: usize,
+) -> Result<(Vec<u8>, Box<dyn Read>), AppError> {
+    let mut prefix = vec![0u8; n];
+    let got = read_up_to(&mut reader, &mut prefix).map_err(|e| AppError::Io(e.to_string()))?;
+    prefix.truncate(got);
+    let chained: Box<dyn Read> = Box::new(Cursor::new(prefix.clone()).chain(reader));
+    Ok((prefix, chained))
+}
+
+/// If the stream begins with the gzip magic bytes (`1f 8b`), wrap it in a
+/// **streaming, multi-member** gzip decoder; otherwise return it unchanged.
+///
+/// [`MultiGzDecoder`] transparently handles both ordinary single-member gzip and
+/// **BGZF** (`.bgz`, the block-gzip variant used by `bgzip`/`tabix` and inside
+/// BAM). BGZF is simply a sequence of concatenated gzip members, which is exactly
+/// what the multi-member decoder consumes — a plain [`GzDecoder`] would stop
+/// after the first block. Decompression is fully streaming: members are inflated
+/// on demand as the parser reads, so a multi-gigabyte `.vcf.gz` is never
+/// decompressed to disk or held whole in RAM.
+fn maybe_decompress<R: Read + 'static>(reader: R) -> Result<Box<dyn Read>, AppError> {
+    let (magic, chained) = peek_prefix(reader, GZIP_MAGIC.len())?;
+    if magic.len() >= 2 && magic[0] == GZIP_MAGIC[0] && magic[1] == GZIP_MAGIC[1] {
+        Ok(Box::new(MultiGzDecoder::new(chained)))
+    } else {
+        Ok(chained)
+    }
+}
+
+/// Transparently decompress (gzip/BGZF) if needed, then detect the genome-file
+/// format from the first [`DETECT_PEEK_BYTES`] bytes of the **decompressed**
+/// stream, and return the detected format string **together with a reader that
+/// still yields the complete, un-consumed stream**.
+///
+/// This is the crux of streaming ingestion: we decide both *how to decompress*
+/// and *which parser to use* after looking at only fixed-size prefixes — never
+/// loading the whole (possibly compressed) file.
+pub fn detect_and_wrap<R: Read + 'static>(
+    reader: R,
 ) -> Result<(String, Box<dyn BufRead>), AppError> {
-    let mut header = vec![0u8; DETECT_PEEK_BYTES];
-    let n = read_up_to(&mut reader, &mut header).map_err(|e| AppError::Io(e.to_string()))?;
-    header.truncate(n);
-
+    // 1. Decompress on the fly if the outer stream is gzip/BGZF.
+    let stream = maybe_decompress(reader)?;
+    // 2. Sniff the (decompressed) header for the genome format, preserving it.
+    let (header, chained) = peek_prefix(stream, DETECT_PEEK_BYTES)?;
     let format = detect_format(&String::from_utf8_lossy(&header));
-
-    // Chain the peeked header bytes back in front of the (still-open) reader so
-    // downstream parsing sees the exact original byte stream.
-    let combined = Cursor::new(header).chain(reader);
-    let buffered = BufReader::with_capacity(READER_CAPACITY, combined);
+    let buffered = BufReader::with_capacity(READER_CAPACITY, chained);
     Ok((format, Box::new(buffered)))
 }
 
@@ -205,6 +249,85 @@ rs12124819\t1\t776546\tGG\n";
             .parse_streaming(buffered.as_mut(), &mut sink)
             .unwrap();
         assert_eq!(sink.count, 3);
+    }
+
+    // ── Phase 1.2: transparent gzip/BGZF streaming decode ─────────────
+
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::io::Write;
+
+    /// gzip-compress `data` into a single gzip member.
+    fn gzip(data: &[u8]) -> Vec<u8> {
+        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(data).unwrap();
+        enc.finish().unwrap()
+    }
+
+    #[test]
+    fn detect_and_wrap_transparently_decodes_gzip() {
+        // A `.vcf.gz`-style stream: detection and parsing must operate on the
+        // decompressed bytes, transparently.
+        let compressed = gzip(SAMPLE_23ANDME.as_bytes());
+        // Sanity: the compressed bytes start with the gzip magic and are NOT the
+        // plaintext (so we're really exercising the decompressor).
+        assert_eq!(&compressed[..2], &[0x1f, 0x8b]);
+
+        let (format, mut reader) = detect_and_wrap(Cursor::new(compressed)).unwrap();
+        assert_eq!(format, "23andme_v5");
+        let mut all = String::new();
+        reader.read_to_string(&mut all).unwrap();
+        assert_eq!(all, SAMPLE_23ANDME);
+    }
+
+    #[test]
+    fn gzip_stream_survives_tiny_read_chunks() {
+        // Feed the *compressed* bytes one at a time: proves decompression is
+        // streaming and reassembles inflate output across read boundaries — a
+        // whole-file decompress-first approach would be impossible here.
+        let compressed = gzip(SAMPLE_23ANDME.as_bytes());
+        let reader = ChunkReader::new(&compressed, 1);
+        let (format, mut buffered) = detect_and_wrap(reader).unwrap();
+        assert_eq!(format, "23andme_v5");
+
+        let mut sink = VecSink::default();
+        let summary = crate::parser::twentythree::TwentyThreeParser
+            .parse_streaming(buffered.as_mut(), &mut sink)
+            .unwrap();
+        assert_eq!(summary.snp_count, 3);
+        assert_eq!(summary.build.as_deref(), Some("GRCh37"));
+        assert_eq!(sink.snps[0].rsid, "rs4477212");
+    }
+
+    #[test]
+    fn multi_member_gzip_decodes_all_blocks_like_bgzf() {
+        // BGZF is a series of concatenated gzip members. A plain single-member
+        // decoder would stop after the first block and silently truncate the
+        // genome; MultiGzDecoder must read every member. Simulate BGZF by
+        // concatenating independent gzip members split mid-file.
+        let text = SAMPLE_23ANDME.as_bytes();
+        let split = text.len() / 2;
+        let mut bgzf_like = gzip(&text[..split]);
+        bgzf_like.extend_from_slice(&gzip(&text[split..]));
+
+        let (format, mut reader) = detect_and_wrap(Cursor::new(bgzf_like)).unwrap();
+        assert_eq!(format, "23andme_v5");
+        let mut all = String::new();
+        reader.read_to_string(&mut all).unwrap();
+        // The full original content must be recovered across *both* members.
+        assert_eq!(all, SAMPLE_23ANDME);
+    }
+
+    #[test]
+    fn uncompressed_stream_still_detected_after_1_2() {
+        // Regression: plain (non-gzip) input must be untouched by the new
+        // decompression sniffing.
+        let (format, mut reader) =
+            detect_and_wrap(Cursor::new(SAMPLE_23ANDME.as_bytes().to_vec())).unwrap();
+        assert_eq!(format, "23andme_v5");
+        let mut all = String::new();
+        reader.read_to_string(&mut all).unwrap();
+        assert_eq!(all, SAMPLE_23ANDME);
     }
 }
 
