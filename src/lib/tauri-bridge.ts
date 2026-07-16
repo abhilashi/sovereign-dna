@@ -52,6 +52,10 @@ export interface SnpRow {
   chromosome: string;
   position: number;
   genotype: string;
+  // Phase 1.3: VCF variant alleles + originating sample. Null for array formats.
+  refAllele?: string | null;
+  altAllele?: string | null;
+  sample?: string | null;
 }
 
 // Matches Rust: db::queries::AnnotatedSnp

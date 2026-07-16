@@ -9,7 +9,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
 
-/// A single parsed SNP from any file format.
+/// A single parsed SNP / variant genotype from any file format.
+///
+/// For genotyping-array formats (23andMe, AncestryDNA) a row is fully described
+/// by its rsID + genotype, and `ref_allele`/`alt_allele`/`sample` are `None`.
+///
+/// For VCF the variant *identity* is the locus tuple **`(chromosome, position,
+/// ref_allele, alt_allele)`** — an rsID is optional and absent for the many
+/// novel variants that never get one. Phase 1.3 therefore carries the REF/ALT
+/// alleles explicitly and keys no-rsID variants positionally
+/// (`chr{chr}:{pos}:{ref}:{alt}`, see [`variant_key`]). `sample` records which
+/// sample column a genotype came from, so multi-sample VCFs no longer collapse
+/// to just the first sample.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedSnp {
@@ -17,6 +28,29 @@ pub struct ParsedSnp {
     pub chromosome: String,
     pub position: i64,
     pub genotype: String,
+    /// Reference allele (VCF `REF`). `None` for array formats.
+    #[serde(default)]
+    pub ref_allele: Option<String>,
+    /// Alternate allele the genotype is called against (VCF `ALT`). For a
+    /// multiallelic site this is the full ALT list observed at the site.
+    /// `None` for array formats.
+    #[serde(default)]
+    pub alt_allele: Option<String>,
+    /// Originating sample name (from the VCF `#CHROM` header). `None` for
+    /// single-column array formats.
+    #[serde(default)]
+    pub sample: Option<String>,
+}
+
+/// Canonical variant key for a locus: `chr{chromosome}:{position}:{ref}:{alt}`.
+///
+/// This is the `(chr,pos,ref,alt)` identity used to distinguish variants that
+/// share a position (e.g. multiallelic sites, or a SNP and an indel at the same
+/// coordinate) and to give novel, rsID-less variants a stable, unique handle.
+/// The chromosome is normalized (no `chr` prefix, upper-cased) by the caller
+/// before this is built.
+pub fn variant_key(chromosome: &str, position: i64, ref_allele: &str, alt_allele: &str) -> String {
+    format!("chr{}:{}:{}:{}", chromosome, position, ref_allele, alt_allele)
 }
 
 /// Result of parsing a raw DNA data file.

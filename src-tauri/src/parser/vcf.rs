@@ -3,17 +3,25 @@ use std::io::{BufRead, Cursor};
 use crate::error::AppError;
 
 use super::streaming::detect_build_line;
-use super::{GenomeParser, ParseResult, ParseSummary, ParsedSnp, SnpSink, VecSink};
+use super::{variant_key, GenomeParser, ParseResult, ParseSummary, ParsedSnp, SnpSink, VecSink};
 
 /// Streaming parser for VCF (Variant Call Format) files.
 ///
 /// Meta-information lines start with `##`; the header line starts with `#CHROM`.
 /// Data columns: CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT, SAMPLE…
-/// Genotype is taken from the first sample column via its `GT` field.
 ///
-/// NOTE: this remains the genotyping-array-shaped VCF reader (first sample,
-/// biallelic-friendly). Multi-sample and `(chr,pos,ref,alt)` keying are the
-/// subject of Phase 1.3; here we only move it onto the streaming trait.
+/// **Phase 1.3 — multi-sample + `(chr,pos,ref,alt)` keying:**
+/// - The `#CHROM` header is parsed to recover every sample name.
+/// - Each data record emits **one [`ParsedSnp`] per sample** (not just the
+///   first column), tagged with its `sample` name, so multi-sample VCFs are no
+///   longer collapsed to a single individual.
+/// - Every emitted genotype carries the site's `ref_allele`/`alt_allele`, and
+///   variants without an rsID are keyed by the locus tuple
+///   `chr{chr}:{pos}:{ref}:{alt}` (see [`variant_key`]) instead of position
+///   alone — so novel variants and co-located multiallelic/indel sites stay
+///   distinct.
+/// - A per-sample missing genotype (`./.`) is skipped for that sample only; the
+///   record still contributes its other samples' calls.
 pub struct VcfParser;
 
 impl GenomeParser for VcfParser {
@@ -26,6 +34,8 @@ impl GenomeParser for VcfParser {
         let mut skipped_lines: usize = 0;
         let mut snp_count: usize = 0;
         let mut build: Option<String> = None;
+        // Sample names recovered from the `#CHROM` header (columns 9..).
+        let mut samples: Vec<String> = Vec::new();
 
         let mut line = String::new();
         loop {
@@ -53,8 +63,14 @@ impl GenomeParser for VcfParser {
                 continue;
             }
 
-            // Column header line, or any other stray comment line.
+            // Column header line: `#CHROM POS ID REF ALT QUAL FILTER INFO FORMAT
+            // SAMPLE1 SAMPLE2 …`. Capture the sample names so each genotype can
+            // be attributed to its source individual.
             if trimmed.starts_with('#') {
+                let cols: Vec<&str> = trimmed.split('\t').collect();
+                if cols.first() == Some(&"#CHROM") && cols.len() > 9 {
+                    samples = cols[9..].iter().map(|s| s.to_string()).collect();
+                }
                 skipped_lines += 1;
                 continue;
             }
@@ -70,11 +86,11 @@ impl GenomeParser for VcfParser {
                 .unwrap_or(fields[0])
                 .to_uppercase();
             let pos_str = fields[1];
-            let rsid = fields[2];
+            let id = fields[2];
             let ref_allele = fields[3];
             let alt_allele = fields[4];
             let format_field = fields[8];
-            let sample_field = fields[9];
+            let sample_fields = &fields[9..];
 
             let position: i64 = match pos_str.parse() {
                 Ok(p) => p,
@@ -84,43 +100,63 @@ impl GenomeParser for VcfParser {
                 }
             };
 
-            // Synthesize a positional identifier when the variant has no rsID.
-            let rsid_str = if rsid == "." {
-                format!("chr{}:{}", chrom, position)
+            // Variant identity: use the rsID when present, otherwise the
+            // canonical (chr,pos,ref,alt) locus key so novel and co-located
+            // (multiallelic / indel) variants remain distinct.
+            let key = if id == "." {
+                variant_key(&chrom, position, ref_allele, alt_allele)
             } else {
-                rsid.to_string()
+                id.to_string()
             };
 
-            // Locate the GT sub-field within FORMAT.
-            let gt_index = format_field.split(':').position(|f| f == "GT");
-            let genotype = match gt_index {
-                Some(idx) => {
-                    let sample_parts: Vec<&str> = sample_field.split(':').collect();
-                    if idx < sample_parts.len() {
-                        vcf_gt_to_genotype(sample_parts[idx], ref_allele, alt_allele)
-                    } else {
-                        skipped_lines += 1;
-                        continue;
-                    }
-                }
+            // Locate the GT sub-field within FORMAT once for the whole record.
+            let gt_index = match format_field.split(':').position(|f| f == "GT") {
+                Some(idx) => idx,
                 None => {
                     skipped_lines += 1;
                     continue;
                 }
             };
 
-            if genotype.is_empty() || genotype == ".." {
-                skipped_lines += 1;
-                continue;
+            // Emit one genotype per sample column. A per-sample missing call is
+            // skipped for that sample only; the record still yields the rest.
+            let mut emitted_any = false;
+            for (i, sample_field) in sample_fields.iter().enumerate() {
+                let sample_parts: Vec<&str> = sample_field.split(':').collect();
+                let genotype = if gt_index < sample_parts.len() {
+                    vcf_gt_to_genotype(sample_parts[gt_index], ref_allele, alt_allele)
+                } else {
+                    String::new()
+                };
+
+                if genotype.is_empty() || genotype == ".." {
+                    continue; // missing/no-call for this sample
+                }
+
+                // Prefer the declared sample name; fall back to a positional
+                // label for headerless / malformed inputs.
+                let sample_name = samples
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| format!("SAMPLE{}", i + 1));
+
+                sink.push(ParsedSnp {
+                    rsid: key.clone(),
+                    chromosome: chrom.clone(),
+                    position,
+                    genotype,
+                    ref_allele: Some(ref_allele.to_string()),
+                    alt_allele: Some(alt_allele.to_string()),
+                    sample: Some(sample_name),
+                })?;
+                snp_count += 1;
+                emitted_any = true;
             }
 
-            sink.push(ParsedSnp {
-                rsid: rsid_str,
-                chromosome: chrom,
-                position,
-                genotype,
-            })?;
-            snp_count += 1;
+            // Only count the whole line as skipped if no sample produced a call.
+            if !emitted_any {
+                skipped_lines += 1;
+            }
         }
 
         Ok(ParseSummary {
@@ -204,16 +240,21 @@ mod tests {
         let mut reader = Cursor::new(SAMPLE.as_bytes());
         let summary = VcfParser.parse_streaming(&mut reader, &mut sink).unwrap();
 
-        // 4 data rows: the "./." missing genotype is skipped → 3 kept.
+        // 4 data rows, single sample: the "./." missing genotype is skipped → 3 kept.
         assert_eq!(summary.snp_count, 3);
         assert_eq!(sink.snps.len(), 3);
         assert_eq!(summary.build.as_deref(), Some("GRCh38"));
 
         assert_eq!(sink.snps[0].genotype, "AG"); // 0/1 → REF+ALT
         assert_eq!(sink.snps[1].genotype, "GG"); // 1|1 → ALT+ALT
-        // No-rsID variant gets a positional identifier.
-        assert_eq!(sink.snps[2].rsid, "chr2:100");
         assert_eq!(sink.snps[2].genotype, "CC"); // 0/0 → REF+REF
+
+        // Phase 1.3: REF/ALT + sample now populated; no-rsID variant keyed by
+        // the full (chr,pos,ref,alt) locus tuple.
+        assert_eq!(sink.snps[0].ref_allele.as_deref(), Some("A"));
+        assert_eq!(sink.snps[0].alt_allele.as_deref(), Some("G"));
+        assert_eq!(sink.snps[0].sample.as_deref(), Some("SAMPLE1"));
+        assert_eq!(sink.snps[2].rsid, "chr2:100:C:T");
     }
 
     #[test]
@@ -221,5 +262,59 @@ mod tests {
         let result = parse_vcf(SAMPLE).unwrap();
         assert_eq!(result.format, "vcf");
         assert_eq!(result.snps.len(), 3);
+    }
+
+    const MULTISAMPLE: &str = "##fileformat=VCFv4.2\n\
+##reference=GRCh37\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tNA001\tNA002\n\
+1\t100\trs1\tA\tG\t.\tPASS\t.\tGT\t0/1\t1/1\n\
+1\t200\t.\tC\tT\t.\tPASS\t.\tGT\t0/0\t./.\n";
+
+    #[test]
+    fn multi_sample_emits_a_row_per_sample() {
+        let mut sink = VecSink::default();
+        let mut reader = Cursor::new(MULTISAMPLE.as_bytes());
+        let summary = VcfParser.parse_streaming(&mut reader, &mut sink).unwrap();
+
+        // Row 1: 2 samples → 2 calls (AG, GG). Row 2: NA001 0/0 → CC, NA002 ./.
+        // skipped → 1 call. Total = 3.
+        assert_eq!(summary.snp_count, 3);
+        assert_eq!(sink.snps.len(), 3);
+        assert_eq!(summary.build.as_deref(), Some("GRCh37"));
+
+        // First record attributed to both samples.
+        assert_eq!(sink.snps[0].sample.as_deref(), Some("NA001"));
+        assert_eq!(sink.snps[0].genotype, "AG"); // 0/1
+        assert_eq!(sink.snps[1].sample.as_deref(), Some("NA002"));
+        assert_eq!(sink.snps[1].genotype, "GG"); // 1/1
+
+        // Second record: only NA001 has a call; keyed by (chr,pos,ref,alt).
+        assert_eq!(sink.snps[2].sample.as_deref(), Some("NA001"));
+        assert_eq!(sink.snps[2].rsid, "chr1:200:C:T");
+        assert_eq!(sink.snps[2].genotype, "CC");
+        assert_eq!(sink.snps[2].ref_allele.as_deref(), Some("C"));
+        assert_eq!(sink.snps[2].alt_allele.as_deref(), Some("T"));
+    }
+
+    #[test]
+    fn multiallelic_site_resolves_alt_and_keys_full_alt_list() {
+        // ALT has two alleles; genotype 1/2 picks one of each. The variant key
+        // preserves the full ALT list so the multiallelic site is unambiguous.
+        let vcf = "##fileformat=VCFv4.2\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n\
+5\t300\t.\tA\tG,T\t.\tPASS\t.\tGT\t1/2\n";
+        let mut sink = VecSink::default();
+        let mut reader = Cursor::new(vcf.as_bytes());
+        VcfParser.parse_streaming(&mut reader, &mut sink).unwrap();
+
+        assert_eq!(sink.snps.len(), 1);
+        assert_eq!(sink.snps[0].genotype, "GT"); // allele 1 (G) + allele 2 (T)
+        assert_eq!(sink.snps[0].alt_allele.as_deref(), Some("G,T"));
+        assert_eq!(sink.snps[0].rsid, "chr5:300:A:G,T");
+    }
+
+    #[test]
+    fn variant_key_is_chr_pos_ref_alt() {
+        assert_eq!(super::variant_key("7", 1000, "A", "T"), "chr7:1000:A:T");
     }
 }

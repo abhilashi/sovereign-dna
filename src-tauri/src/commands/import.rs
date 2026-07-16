@@ -67,6 +67,9 @@ impl<'a> SnpSink for DbBatchSink<'a> {
             chromosome: snp.chromosome,
             position: snp.position,
             genotype: snp.genotype,
+            ref_allele: snp.ref_allele,
+            alt_allele: snp.alt_allele,
+            sample: snp.sample,
         });
         if self.buffer.len() >= BATCH_SIZE {
             self.flush()?;

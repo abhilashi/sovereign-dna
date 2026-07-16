@@ -96,6 +96,10 @@ impl GenomeParser for AncestryParser {
                 chromosome: chrom,
                 position,
                 genotype,
+                // Genotyping-array formats have no REF/ALT or sample dimension.
+                ref_allele: None,
+                alt_allele: None,
+                sample: None,
             })?;
             snp_count += 1;
         }

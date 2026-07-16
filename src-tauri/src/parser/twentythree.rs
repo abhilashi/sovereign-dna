@@ -95,6 +95,10 @@ impl GenomeParser for TwentyThreeParser {
                 chromosome: chrom,
                 position,
                 genotype: genotype.to_uppercase(),
+                // Genotyping-array formats have no REF/ALT or sample dimension.
+                ref_allele: None,
+                alt_allele: None,
+                sample: None,
             })?;
             snp_count += 1;
         }
