@@ -26,8 +26,20 @@
 //!   to prove only DP-noised aggregates + public rsIDs cross the (simulated)
 //!   device boundary; genotypes / per-individual clear gradients are refused.
 //!
+//! * **Transport seam** ([`transport`]) — how a round exchanges its DP-noised
+//!   masked shares is abstracted behind a [`transport::Transport`] trait. The
+//!   default [`transport::InProcessTransport`] keeps the in-process simulation;
+//!   [`rings::RingsTransport`] (activation gated behind the `rings-transport`
+//!   feature) routes the identical shares over a **process-separation JSON-RPC
+//!   boundary** to a (stub or real) [Rings](https://github.com/RingsNetwork/rings)
+//!   node — registering the round as a Rings namespace protocol — so the GPL-3.0
+//!   Rings code never links into this crate.
+//!
 //! ## Explicitly out of scope for the prototype (gated / future — see PR)
-//! * **4.4** real libp2p transport / content-addressed snapshot gossip;
+//! * **4.4** real libp2p/WebRTC transport / content-addressed snapshot gossip.
+//!   The [`transport`] seam + [`rings`] adapter prove the *boundary and API
+//!   shape* against a stub Rings node; a live DID/WebRTC `rings` daemon, real
+//!   peer discovery, and dropout recovery remain future work;
 //! * **4.5** ZK/TEE attestation of correct DP application;
 //! * **4.6 / 4.9** Sybil / poisoning defense + `$BEAST` staking incentives
 //!   (only a benchmark gate + reproducible manifest are here);
@@ -49,8 +61,10 @@ pub mod boundary;
 pub mod dp;
 pub mod model;
 pub mod prng;
+pub mod rings;
 pub mod round;
 pub mod secure_agg;
+pub mod transport;
 
 use dp::PrivacyAccountant;
 use model::{LocalExample, LocalNode, Model};

@@ -12,7 +12,9 @@
 //! 1. Each simulated node computes a local gradient (`model.rs`).
 //! 2. Each gradient is **clipped + DP-noised** (`dp.rs`) with the round's
 //!    Gaussian mechanism; the privacy accountant composes one Gaussian round.
-//! 3. The noised gradients are **secure-aggregated** (`secure_agg.rs`) so no
+//! 3. Each noised gradient is masked (`secure_agg.rs`) and **exchanged over a
+//!    [`Transport`](super::transport::Transport) seam** — in-process by default,
+//!    or over a process-separated Rings RPC boundary — then aggregated, so no
 //!    single party sees an individual update.
 //! 4. Candidate model = `prior − lr · (aggregate / num_nodes)` (FedSGD step).
 //! 5. **Gate:** evaluate prior vs candidate MSE on the held-out benchmark;
@@ -26,6 +28,7 @@ use super::dp::{GaussianMechanism, PrivacyAccountant};
 use super::model::{LocalExample, LocalNode, Model};
 use super::prng::SplitMix64;
 use super::secure_agg;
+use super::transport::{InProcessTransport, RoundTopic, ShareMessage, Transport, TransportError};
 
 /// Configuration for one federated round.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -107,7 +110,42 @@ pub struct RoundOutcome {
     pub masked_shares: Vec<Vec<f64>>,
 }
 
-/// Execute one benchmark-gated federated round.
+/// Exchange each node's clipped+DP-noised gradient over a [`Transport`] as a
+/// secure-agg **masked share**, then return the shares in `node_index` order.
+///
+/// This is the seam between the round logic and *how* shares move between nodes.
+/// The default [`InProcessTransport`] reproduces the previous in-process
+/// `secure_agg::secure_sum` exactly (same masked shares, same order → same
+/// aggregate → same manifest). A `RingsTransport` moves the identical bytes over
+/// a process-separation RPC boundary instead.
+fn exchange_shares(
+    transport: &mut dyn Transport,
+    topic: &RoundTopic,
+    noised: &[Vec<f64>],
+    round_seed: u64,
+) -> Result<Vec<Vec<f64>>, TransportError> {
+    transport.register_round(topic)?;
+    let n = noised.len();
+    for (i, update) in noised.iter().enumerate() {
+        // Each node masks its own (already DP-noised) update; only this masked
+        // share is ever transmitted — never the clear gradient.
+        let masked = secure_agg::masked_share(update, i, n, round_seed);
+        let msg = ShareMessage {
+            round: topic.round,
+            node_index: i,
+            values: masked,
+            dp_noised: true,
+            masked: true,
+        };
+        transport.publish_share(topic, &msg)?;
+    }
+    let collected = transport.collect_shares(topic, n)?;
+    Ok(collected.into_iter().map(|m| m.values).collect())
+}
+
+/// Execute one benchmark-gated federated round using the default in-process
+/// transport (the PR #113 behaviour). Bit-for-bit equivalent to the previous
+/// direct `secure_agg::secure_sum` path.
 ///
 /// `prior` is the current shared model; `nodes` are the simulated participants;
 /// `benchmark` is the fixed held-out synthetic evaluation set; `accountant`
@@ -119,10 +157,29 @@ pub fn run_round(
     cfg: &RoundConfig,
     accountant: &mut PrivacyAccountant,
 ) -> RoundOutcome {
+    let mut transport = InProcessTransport::new();
+    run_round_with_transport(prior, nodes, benchmark, cfg, accountant, &mut transport)
+        .expect("in-process transport is infallible")
+}
+
+/// Execute one benchmark-gated federated round, exchanging DP-noised shares over
+/// the supplied [`Transport`]. The numeric result is independent of the
+/// transport — only the *path* the (masked, DP-noised) shares travel differs.
+///
+/// Returns `Err` only if the transport boundary itself fails (e.g. a Rings RPC
+/// error or a payload refused by the device-boundary guard).
+pub fn run_round_with_transport(
+    prior: &Model,
+    nodes: &[LocalNode],
+    benchmark: &[LocalExample],
+    cfg: &RoundConfig,
+    accountant: &mut PrivacyAccountant,
+    transport: &mut dyn Transport,
+) -> Result<RoundOutcome, TransportError> {
     let k = prior.len();
     let mech = cfg.mechanism();
 
-    // 1–3: local gradients → clip + noise → secure aggregate.
+    // 1–2: local gradients → clip + DP noise.
     let noised: Vec<Vec<f64>> = nodes
         .iter()
         .enumerate()
@@ -134,7 +191,10 @@ pub fn run_round(
         })
         .collect();
 
-    let (masked_shares, agg) = secure_agg::secure_sum(&noised, cfg.round_seed);
+    // 3: exchange masked shares over the transport seam, then secure-aggregate.
+    let topic = RoundTopic::new(accountant.rounds, cfg.round_seed);
+    let masked_shares = exchange_shares(transport, &topic, &noised, cfg.round_seed)?;
+    let agg = secure_agg::aggregate(&masked_shares);
     accountant.compose_gaussian(cfg.noise_multiplier);
 
     // 4: FedSGD step with the averaged aggregate gradient.
@@ -171,11 +231,11 @@ pub fn run_round(
     };
     manifest.manifest_hash = content_hash(&manifest);
 
-    RoundOutcome {
+    Ok(RoundOutcome {
         manifest,
         model,
         masked_shares,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -255,6 +315,71 @@ mod tests {
         let bad = run_round(&optimum, &nodes, &bench, &cfg(9, 3.0), &mut acc2);
         assert!(!bad.manifest.promoted, "a noisy step from optimum must be rejected");
         assert_eq!(bad.model.weights, optimum.weights, "prior model must stand");
+    }
+
+    #[test]
+    fn transport_choice_does_not_change_the_result() {
+        // Same round run over the default in-process transport and over the
+        // process-separated Rings RPC stub must yield an identical manifest —
+        // the transport only changes the *path* the DP-noised shares travel.
+        use super::super::rings::RingsTransport;
+        let (nodes, bench) = make_world(&[0.7, -0.3, 0.5], 4, 40);
+        let prior = Model::zeros(3);
+
+        let mut acc_p = PrivacyAccountant::new();
+        let in_proc = run_round(&prior, &nodes, &bench, &cfg(555, 0.3), &mut acc_p);
+
+        let mut acc_r = PrivacyAccountant::new();
+        let mut rings = RingsTransport::stub("did:rings:node-agg");
+        let over_rings =
+            run_round_with_transport(&prior, &nodes, &bench, &cfg(555, 0.3), &mut acc_r, &mut rings)
+                .expect("rings stub transport succeeds");
+
+        assert_eq!(
+            in_proc.manifest.manifest_hash, over_rings.manifest.manifest_hash,
+            "manifest must be identical regardless of transport"
+        );
+        assert_eq!(in_proc.masked_shares, over_rings.masked_shares);
+        assert_eq!(in_proc.model.weights, over_rings.model.weights);
+    }
+
+    #[test]
+    fn only_dp_noised_aggregates_cross_the_rings_boundary() {
+        // Demo: two simulated nodes exchange one DP-noised aggregate over the
+        // RingsTransport (stub), and the privacy-ledger invariant is extended —
+        // every masked share that crossed is a valid outbound artifact, and a
+        // genotype smuggled onto the same boundary is refused.
+        use super::super::boundary::{assert_leaves_boundary, OutboundArtifact};
+        use super::super::rings::RingsTransport;
+        let (nodes, bench) = make_world(&[1.0, -0.5], 2, 30);
+        let prior = Model::zeros(2);
+
+        let mut acc = PrivacyAccountant::new();
+        let mut rings = RingsTransport::stub("did:rings:node-a");
+        let out =
+            run_round_with_transport(&prior, &nodes, &bench, &cfg(4242, 0.3), &mut acc, &mut rings)
+                .expect("rings stub transport succeeds");
+
+        // Exactly the two nodes' masked+noised shares crossed the boundary.
+        assert_eq!(out.masked_shares.len(), 2);
+        for share in &out.masked_shares {
+            let artifact = OutboundArtifact::MaskedNoisedShare {
+                round: out.manifest.round,
+                values: share.clone(),
+            };
+            assert!(assert_leaves_boundary(&artifact).is_ok());
+        }
+        // The manifest reference is also a legal outbound artifact.
+        assert!(assert_leaves_boundary(&OutboundArtifact::RoundManifestRef {
+            manifest_hash: out.manifest.manifest_hash.clone(),
+            epsilon: out.manifest.epsilon,
+        })
+        .is_ok());
+        // A raw genotype on the SAME boundary is refused — nothing private leaks.
+        assert!(assert_leaves_boundary(&OutboundArtifact::PublicIdentifiers(vec![
+            "AG".into()
+        ]))
+        .is_err());
     }
 
     #[test]

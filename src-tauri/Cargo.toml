@@ -15,6 +15,14 @@ rust-version = "1.77.2"
 # gated — see src/federated/mod.rs.
 federated-prototype = []
 
+# Phase-4 transport spike: activate the Rings-based transport adapter
+# (`federated::rings::RingsTransport`). OFF by default and independent of
+# `federated-prototype`. The pure adapter + JSON-RPC stub always compile (so CI
+# type-checks them); this flag gates *activation* and, in production, whether the
+# optional real rings-daemon RPC client is compiled in. RingsNetwork/rings is
+# GPL-3.0, so it is reached over a process-separation RPC boundary, never linked.
+rings-transport = []
+
 [lib]
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
