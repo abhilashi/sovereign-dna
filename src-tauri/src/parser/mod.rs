@@ -4,6 +4,7 @@ pub mod csvarray;
 mod fuzz;
 pub mod gvcf;
 pub mod liftover;
+pub mod provenance;
 pub mod streaming;
 pub mod twentythree;
 pub mod vcf;

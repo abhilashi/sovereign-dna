@@ -16,6 +16,15 @@ pub struct Genome {
     pub imported_at: String,
     pub snp_count: i64,
     pub build: Option<String>,
+    /// Human-readable source label, e.g. "23andMe (v5 array)". (Phase 1.9)
+    #[serde(default)]
+    pub source_label: Option<String>,
+    /// Total input lines seen during import. (Phase 1.9)
+    #[serde(default)]
+    pub total_lines: Option<i64>,
+    /// Lines skipped (comments, headers, no-calls, malformed). (Phase 1.9)
+    #[serde(default)]
+    pub skipped_lines: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,27 +100,44 @@ pub fn insert_genome(
     Ok(conn.last_insert_rowid())
 }
 
-/// Finalize a genome row's statistics after a streaming import.
+/// Finalize a genome row's statistics **and** its Phase 1.9 provenance metadata
+/// (source label + line counts) after a streaming import.
 ///
-/// Streaming ingestion inserts the `genomes` row up front (before the SNP count
-/// or reference build are known) so that SNPs can be written incrementally with
-/// a valid `genome_id`; this updates the row once the stream completes.
-pub fn update_genome_stats(
+/// Streaming ingestion inserts the `genomes` row up front (before the SNP count,
+/// reference build, or quality stats are known) so that SNPs can be written
+/// incrementally with a valid `genome_id`; this updates the row once the stream
+/// completes.
+#[allow(clippy::too_many_arguments)]
+pub fn update_genome_provenance(
     conn: &Connection,
     genome_id: i64,
     snp_count: i64,
     build: Option<&str>,
+    source_label: &str,
+    total_lines: i64,
+    skipped_lines: i64,
 ) -> Result<(), AppError> {
     conn.execute(
-        "UPDATE genomes SET snp_count = ?2, build = ?3 WHERE id = ?1",
-        rusqlite::params![genome_id, snp_count, build],
+        "UPDATE genomes
+            SET snp_count = ?2, build = ?3, source_label = ?4,
+                total_lines = ?5, skipped_lines = ?6
+          WHERE id = ?1",
+        rusqlite::params![
+            genome_id,
+            snp_count,
+            build,
+            source_label,
+            total_lines,
+            skipped_lines
+        ],
     )?;
     Ok(())
 }
 
 pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT id, filename, format, imported_at, snp_count, build FROM genomes ORDER BY imported_at DESC",
+        "SELECT id, filename, format, imported_at, snp_count, build, \
+source_label, total_lines, skipped_lines FROM genomes ORDER BY imported_at DESC",
     )?;
 
     let genomes = stmt
@@ -123,6 +149,9 @@ pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
                 imported_at: row.get(3)?,
                 snp_count: row.get(4)?,
                 build: row.get(5)?,
+                source_label: row.get(6)?,
+                total_lines: row.get(7)?,
+                skipped_lines: row.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -132,7 +161,8 @@ pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
 
 pub fn get_genome(conn: &Connection, id: i64) -> Result<Genome, AppError> {
     conn.query_row(
-        "SELECT id, filename, format, imported_at, snp_count, build FROM genomes WHERE id = ?1",
+        "SELECT id, filename, format, imported_at, snp_count, build, \
+source_label, total_lines, skipped_lines FROM genomes WHERE id = ?1",
         [id],
         |row| {
             Ok(Genome {
@@ -142,6 +172,9 @@ pub fn get_genome(conn: &Connection, id: i64) -> Result<Genome, AppError> {
                 imported_at: row.get(3)?,
                 snp_count: row.get(4)?,
                 build: row.get(5)?,
+                source_label: row.get(6)?,
+                total_lines: row.get(7)?,
+                skipped_lines: row.get(8)?,
             })
         },
     )

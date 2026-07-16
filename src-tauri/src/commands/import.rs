@@ -95,6 +95,11 @@ pub struct ImportResult {
     pub snp_count: usize,
     pub format: String,
     pub build: Option<String>,
+    /// Human-readable source label, e.g. "23andMe (v5 array)". (Phase 1.9)
+    pub source_label: String,
+    /// Plain-language provenance/quality warnings for the user; empty when the
+    /// import looks clean. (Phase 1.9)
+    pub warnings: Vec<String>,
     pub quality_summary: QualitySummary,
 }
 
@@ -185,36 +190,48 @@ import that."
 
     let snp_count = summary.snp_count;
 
-    // Finalize the genome row with the real count + detected build.
-    queries::update_genome_stats(
+    // Phase 1.9: derive human provenance + quality warnings.
+    let provenance = crate::parser::provenance::build_provenance(
+        &format,
+        summary.build.as_deref(),
+        summary.total_lines,
+        summary.skipped_lines,
+        snp_count,
+    );
+
+    // Finalize the genome row with the real count, detected build, and the
+    // per-genome provenance metadata.
+    queries::update_genome_provenance(
         &conn,
         genome_id,
         snp_count as i64,
         summary.build.as_deref(),
+        &provenance.source_label,
+        summary.total_lines as i64,
+        summary.skipped_lines as i64,
     )?;
 
     let _ = channel.send(ImportProgress {
         phase: "complete".to_string(),
         progress: 1.0,
-        message: format!("Import complete: {} SNPs from {} format", snp_count, format),
+        message: format!(
+            "Import complete: {} variants from {}",
+            snp_count, provenance.source_label
+        ),
     });
-
-    let skip_rate = if summary.total_lines > 0 {
-        (summary.skipped_lines as f64 / summary.total_lines as f64 * 100.0).round() / 100.0
-    } else {
-        0.0
-    };
 
     Ok(ImportResult {
         genome_id,
         snp_count,
         format,
         build: summary.build,
+        source_label: provenance.source_label,
+        warnings: provenance.warnings,
         quality_summary: QualitySummary {
             total_lines: summary.total_lines,
             skipped_lines: summary.skipped_lines,
             valid_snps: snp_count,
-            skip_rate,
+            skip_rate: provenance.skip_rate,
         },
     })
 }
