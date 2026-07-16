@@ -16,6 +16,7 @@
 pub mod engine;
 pub mod manifest;
 pub mod registry;
+pub mod sandbox;
 pub mod signing;
 
 use manifest::SkillManifest;
