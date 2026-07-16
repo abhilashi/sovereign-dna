@@ -13,6 +13,7 @@ use crate::agents::ledger::{
 };
 use crate::agents::memory::{AgentFinding, AgentMemory};
 use crate::agents::runtime::{run_agent, AgentRun, Clock, NoSummarizer};
+use crate::agents::scheduler;
 use crate::agents::store::{self, SqliteAgentMemory};
 use crate::agents::{summarize_run_local, BuiltinSkillRunner};
 use crate::db::Database;
@@ -79,6 +80,19 @@ pub async fn run_agent_now(
     genome_id: i64,
     db: State<'_, Database>,
 ) -> Result<AgentRun, AppError> {
+    execute_agent(&db, &agent_id, genome_id).await
+}
+
+/// Core execution shared by [`run_agent_now`] and [`run_due_agents`].
+///
+/// Phase 1 (sync, under the DB lock): run the agent's skills, persist findings +
+/// the run row, and record the on-device read in the privacy ledger. Phase 2 (no
+/// lock): optional local-only LLM summarisation, ledgered for transparency.
+async fn execute_agent(
+    db: &Database,
+    agent_id: &str,
+    genome_id: i64,
+) -> Result<AgentRun, AppError> {
     // Deterministic-enough run id (agent + timestamp).
     let run_id = format!(
         "run-{}-{}",
@@ -92,7 +106,7 @@ pub async fn run_agent_now(
             .0
             .lock()
             .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
-        let def = store::get_definition(&conn, &agent_id)?;
+        let def = store::get_definition(&conn, agent_id)?;
         let runner = BuiltinSkillRunner::new(&conn, &def, genome_id);
         let mut memory = SqliteAgentMemory::new(&conn);
         let run = run_agent(
@@ -296,4 +310,88 @@ pub fn mark_agent_finding_seen(
         .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
     let mut memory = SqliteAgentMemory::new(&conn);
     Ok(memory.mark_seen(&finding_id))
+}
+
+// ── Scheduler + safety commands (Phase 3.2 + 3.6) ─────────────────────
+
+/// Record a fleet event the scheduler reacts to (e.g. a reference DB finished
+/// updating). Call this from the reference-download / research-scan flows.
+#[tauri::command]
+pub fn record_agent_event(
+    kind: String,
+    source: Option<String>,
+    db: State<'_, Database>,
+) -> Result<(), AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::record_event(&conn, &kind, source.as_deref(), &chrono::Utc::now().to_rfc3339())
+}
+
+/// Ids of agents currently due to run (time + event triggers evaluated against
+/// each agent's last run and recent fleet events).
+#[tauri::command]
+pub fn list_due_agents(db: State<'_, Database>) -> Result<Vec<String>, AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    let with_last = store::definitions_with_last_run(&conn)?;
+    let events = store::list_recent_events(&conn, 500)?;
+    let now = chrono::Utc::now().to_rfc3339();
+    Ok(scheduler::due_agents(&with_last, &now, &events))
+}
+
+/// The next scheduled run time for an agent (interval triggers only).
+#[tauri::command]
+pub fn get_agent_next_run(
+    agent_id: String,
+    db: State<'_, Database>,
+) -> Result<Option<String>, AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    let def = store::get_definition(&conn, &agent_id)?;
+    let last = SqliteAgentMemory::new(&conn).last_run_at(&agent_id);
+    let now = chrono::Utc::now().to_rfc3339();
+    Ok(scheduler::next_run_at(&def.trigger, last.as_deref(), &now))
+}
+
+/// Run every agent that is currently due, once, against `genome_id`. This is the
+/// scheduler's execution entry point; a background tick (Phase 3.8) calls it.
+#[tauri::command]
+pub async fn run_due_agents(
+    genome_id: i64,
+    db: State<'_, Database>,
+) -> Result<Vec<AgentRun>, AppError> {
+    let due = {
+        let conn = db
+            .0
+            .lock()
+            .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+        let with_last = store::definitions_with_last_run(&conn)?;
+        let events = store::list_recent_events(&conn, 500)?;
+        let now = chrono::Utc::now().to_rfc3339();
+        scheduler::due_agents(&with_last, &now, &events)
+    };
+    let mut runs = Vec::with_capacity(due.len());
+    for agent_id in due {
+        // A single failing agent must not abort the whole batch.
+        if let Ok(run) = execute_agent(&db, &agent_id, genome_id).await {
+            runs.push(run);
+        }
+    }
+    Ok(runs)
+}
+
+/// Rust-layer egress preflight (Phase 3.6): reject an outbound call whose
+/// endpoint is not allowlisted or whose identifiers are not public rsIDs — the
+/// backend-side complement to the webview CSP.
+#[tauri::command]
+pub fn preflight_egress(endpoint: String, identifiers: Vec<String>) -> Result<(), AppError> {
+    crate::agents::safety::EgressGuard::default()
+        .check(&endpoint, &identifiers)
+        .map_err(AppError::Analysis)
 }

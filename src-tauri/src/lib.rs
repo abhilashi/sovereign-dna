@@ -122,6 +122,12 @@ pub fn run() {
             commands::agents::list_consents,
             commands::agents::get_agent_ledger,
             commands::agents::get_agent_egress_summary,
+            // Agent scheduler + safety (Phase 3.2 + 3.6)
+            commands::agents::record_agent_event,
+            commands::agents::list_due_agents,
+            commands::agents::get_agent_next_run,
+            commands::agents::run_due_agents,
+            commands::agents::preflight_egress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

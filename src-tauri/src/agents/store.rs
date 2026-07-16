@@ -16,6 +16,7 @@ use super::definition::AgentDefinition;
 use super::ledger::{ConsentGrant, LedgerEntry};
 use super::memory::{AgentFinding, AgentMemory, FindingKind};
 use super::runtime::AgentRun;
+use super::scheduler::FleetEvent;
 use crate::error::AppError;
 
 fn kind_str(k: FindingKind) -> &'static str {
@@ -326,6 +327,71 @@ pub fn list_ledger(
             outcome: serde_json::from_str(&outcome_json)?,
             description,
         });
+    }
+    Ok(out)
+}
+
+// ── Fleet events + scheduling helpers (Phase 3.2) ─────────────────────
+
+/// Record a fleet event the scheduler can react to (`kind` = `reference_updated`
+/// / `new_matched_article`).
+pub fn record_event(
+    conn: &Connection,
+    kind: &str,
+    source: Option<&str>,
+    at: &str,
+) -> Result<(), AppError> {
+    conn.execute(
+        "INSERT INTO agent_events (kind, source, at) VALUES (?1, ?2, ?3)",
+        rusqlite::params![kind, source, at],
+    )?;
+    Ok(())
+}
+
+/// The most recent fleet events (newest first), as [`FleetEvent`]s.
+pub fn list_recent_events(conn: &Connection, limit: i64) -> Result<Vec<FleetEvent>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT kind, source, at FROM agent_events ORDER BY at DESC, id DESC LIMIT ?1",
+    )?;
+    let rows = stmt.query_map([limit], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, Option<String>>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        let (kind, source, at) = r?;
+        match kind.as_str() {
+            "reference_updated" => out.push(FleetEvent::ReferenceUpdated {
+                source: source.unwrap_or_default(),
+                at,
+            }),
+            "new_matched_article" => out.push(FleetEvent::NewMatchedArticle { at }),
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
+/// All enabled agent definitions paired with their last-run timestamp — the
+/// input the scheduler needs to decide which agents are due.
+pub fn definitions_with_last_run(
+    conn: &Connection,
+) -> Result<Vec<(AgentDefinition, Option<String>)>, AppError> {
+    let defs = list_definitions(conn)?;
+    let mut out = Vec::with_capacity(defs.len());
+    for def in defs {
+        let last: Option<String> = conn
+            .query_row(
+                "SELECT MAX(started_at) FROM agent_runs WHERE agent_id = ?1",
+                [&def.id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten();
+        out.push((def, last));
     }
     Ok(out)
 }

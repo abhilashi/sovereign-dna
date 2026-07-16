@@ -16,6 +16,7 @@ const MIGRATION_004: &str = include_str!("../../migrations/004_research_digest.s
 const MIGRATION_005: &str = include_str!("../../migrations/005_workbench.sql");
 const MIGRATION_006: &str = include_str!("../../migrations/006_agents.sql");
 const MIGRATION_007: &str = include_str!("../../migrations/007_agent_privacy_ledger.sql");
+const MIGRATION_008: &str = include_str!("../../migrations/008_agent_events.sql");
 
 /// Initialize the SQLite database in the given app data directory.
 /// Enables WAL mode and foreign keys, then runs all migrations.
@@ -66,6 +67,7 @@ fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         ("005_workbench", MIGRATION_005),
         ("006_agents", MIGRATION_006),
         ("007_agent_privacy_ledger", MIGRATION_007),
+        ("008_agent_events", MIGRATION_008),
     ];
 
     for (name, sql) in migrations {
