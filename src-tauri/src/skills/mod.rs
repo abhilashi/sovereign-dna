@@ -15,6 +15,7 @@
 
 pub mod engine;
 pub mod manifest;
+pub mod registry;
 pub mod signing;
 
 use manifest::SkillManifest;
@@ -35,6 +36,31 @@ pub fn traits_core_manifest() -> SkillManifest {
 /// additionally load installed skills from disk.
 pub fn builtin_manifests() -> Vec<SkillManifest> {
     vec![traits_core_manifest()]
+}
+
+/// Fetch a signed skill from a static URL (CDN / git-raw / IPFS gateway) and
+/// install it. **No central server is required** — any static host works.
+///
+/// The network is never trusted: the downloaded bytes are verified (Ed25519
+/// signature + trust store) and content-addressed by
+/// [`registry::SkillRegistry::install_from_bytes`] before anything is stored.
+///
+/// Lives here (not in `registry.rs`) so the registry core stays synchronous and
+/// dependency-light for testing; this thin wrapper adds the async HTTP fetch.
+pub async fn install_from_url(
+    reg: &registry::SkillRegistry,
+    url: &str,
+) -> Result<registry::InstalledSkill, crate::error::AppError> {
+    let bytes = reqwest::get(url)
+        .await
+        .map_err(|e| crate::error::AppError::Network(e.to_string()))?
+        .error_for_status()
+        .map_err(|e| crate::error::AppError::Network(e.to_string()))?
+        .bytes()
+        .await
+        .map_err(|e| crate::error::AppError::Network(e.to_string()))?;
+    reg.install_from_bytes(&bytes)
+        .map_err(|e| crate::error::AppError::Analysis(e.to_string()))
 }
 
 // The SQLite adapters need `rusqlite`, which is always present in the real crate
