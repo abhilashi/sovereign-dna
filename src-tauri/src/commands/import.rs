@@ -128,7 +128,7 @@ pub async fn import_genome(
 
     if format == "unknown" {
         return Err(AppError::Parse(
-            "Unable to detect file format. Supported formats: 23andMe, AncestryDNA, VCF."
+            "Unable to detect file format. Supported formats: 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA, VCF."
                 .to_string(),
         ));
     }
