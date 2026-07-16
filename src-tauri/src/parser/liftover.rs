@@ -157,10 +157,12 @@ impl LiftOver {
                 .map_err(|_| AppError::Parse("Invalid block size in chain".to_string()))?;
 
             // Ungapped aligned block: [t, t+size) -> [q, q+size).
+            // Saturating arithmetic keeps a malformed chain from panicking on
+            // overflow (the coordinates simply become nonsensical, not a crash).
             if size > 0 {
                 chains.entry(cur_tname.clone()).or_default().push(Block {
                     t_start: t,
-                    t_end: t + size,
+                    t_end: t.saturating_add(size),
                     q_chrom: cur_qname.clone(),
                     q_start: q,
                     q_strand: cur_qstrand,
@@ -171,8 +173,8 @@ impl LiftOver {
             if nums.len() >= 3 {
                 let dt: u64 = nums[1].parse().unwrap_or(0);
                 let dq: u64 = nums[2].parse().unwrap_or(0);
-                t += size + dt;
-                q += size + dq;
+                t = t.saturating_add(size).saturating_add(dt);
+                q = q.saturating_add(size).saturating_add(dq);
             } else {
                 // Final block of the chain (only `size`).
                 in_chain = false;
@@ -210,12 +212,17 @@ impl LiftOver {
         }
 
         let offset = pos0 - block.t_start;
+        // Use checked arithmetic so a malformed chain (inconsistent q_size /
+        // q_start) can never panic on unsigned overflow — it just fails to lift.
         let q0 = match block.q_strand {
             '-' => {
                 // Reverse-strand coordinate → forward-strand position.
-                block.q_size - 1 - (block.q_start + offset)
+                block
+                    .q_size
+                    .checked_sub(1)?
+                    .checked_sub(block.q_start.checked_add(offset)?)?
             }
-            _ => block.q_start + offset,
+            _ => block.q_start.checked_add(offset)?,
         };
         // Back to 1-based.
         Some((block.q_chrom.clone(), q0 as i64 + 1, block.q_strand))

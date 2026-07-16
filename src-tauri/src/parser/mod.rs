@@ -1,5 +1,7 @@
 pub mod ancestry;
 pub mod csvarray;
+#[cfg(test)]
+mod fuzz;
 pub mod gvcf;
 pub mod liftover;
 pub mod streaming;

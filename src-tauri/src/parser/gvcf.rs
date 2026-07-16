@@ -206,7 +206,10 @@ fn gvcf_gt_to_genotype(gt: &str, ref_allele: &str, alt_list: &[&str]) -> Option<
             }
             _ => {
                 let idx: usize = allele_str.parse().ok()?;
-                let alt = *alt_list.get(idx - 1)?;
+                // A malformed genotype like `00`/`000` parses to index 0 (which
+                // the `"0"` arm didn't catch); `idx.checked_sub(1)` avoids an
+                // unsigned-underflow panic and treats it as a no-call.
+                let alt = *alt_list.get(idx.checked_sub(1)?)?;
                 if is_non_ref(alt) {
                     // Genotype lands on the "any other allele" placeholder —
                     // no concrete base to record.
