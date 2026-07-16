@@ -17,6 +17,7 @@
 //! [`commands`](crate::commands::agents) layer wire them to SQLite / Tauri.
 
 pub mod definition;
+pub mod ledger;
 pub mod memory;
 pub mod runtime;
 pub mod store;

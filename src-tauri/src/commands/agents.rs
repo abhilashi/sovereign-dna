@@ -7,6 +7,10 @@
 use tauri::State;
 
 use crate::agents::definition::AgentDefinition;
+use crate::agents::ledger::{
+    self, ActionKind, ConsentGrant, ConsentScope, Egress, EgressSummary, LedgerEntry,
+    ProposedAction,
+};
 use crate::agents::memory::{AgentFinding, AgentMemory};
 use crate::agents::runtime::{run_agent, AgentRun, Clock, NoSummarizer};
 use crate::agents::store::{self, SqliteAgentMemory};
@@ -100,6 +104,31 @@ pub async fn run_agent_now(
             &SystemClock,
         );
         store::insert_run(&conn, &run, genome_id)?;
+
+        // Privacy ledger (3.7): record the on-device variant read this run made.
+        // Reading genotypes locally has no egress → always AllowedLocal, but it
+        // is still logged so the audit trail is complete.
+        let mut rsids: Vec<String> = run
+            .findings
+            .iter()
+            .flat_map(|f| f.rsids.clone())
+            .collect();
+        rsids.sort();
+        rsids.dedup();
+        let read_action = ProposedAction {
+            agent_id: def.id.clone(),
+            run_id: run_id.clone(),
+            kind: ActionKind::ReadVariants,
+            rsids,
+            egress: None,
+            description: format!(
+                "read {} skill(s) locally; {} finding(s)",
+                def.skill_ids.len(),
+                run.findings.len()
+            ),
+        };
+        let entry = ledger::record(read_action, &[], &run.started_at);
+        let _ = store::append_ledger(&conn, &entry);
         (run, def)
     };
 
@@ -110,10 +139,107 @@ pub async fn run_agent_now(
             .lock()
             .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
         store::set_run_summary(&conn, &run_id, &summary)?;
+        // Ledger the local-LLM summarisation (localhost → local egress, no consent
+        // required, but recorded for transparency).
+        let llm_action = ProposedAction {
+            agent_id: run.agent_id.clone(),
+            run_id: run_id.clone(),
+            kind: ActionKind::LlmLocal,
+            rsids: vec![],
+            egress: Some(Egress {
+                endpoint: "localhost:11434".into(),
+                is_local: true,
+                identifiers: vec![],
+                description: "Ollama summary of findings (on-device)".into(),
+            }),
+            description: "summarised run findings with local Ollama".into(),
+        };
+        let entry = ledger::record(llm_action, &[], &chrono::Utc::now().to_rfc3339());
+        let _ = store::append_ledger(&conn, &entry);
         run.summary = Some(summary);
     }
 
     Ok(run)
+}
+
+// ── Privacy & consent ledger commands (Phase 3.7) ─────────────────────
+
+/// Grant an agent explicit, revocable consent to perform a class of actions.
+#[tauri::command]
+pub fn grant_consent(
+    agent_id: String,
+    scope: ConsentScope,
+    note: Option<String>,
+    db: State<'_, Database>,
+) -> Result<ConsentGrant, AppError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let grant = ConsentGrant {
+        id: format!("consent-{}", chrono::Utc::now().timestamp_millis()),
+        agent_id,
+        scope,
+        granted_at: now,
+        revoked_at: None,
+        note: note.unwrap_or_default(),
+    };
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::upsert_consent(&conn, &grant)?;
+    Ok(grant)
+}
+
+/// Revoke a consent grant. Future actions requiring it are denied; historical
+/// ledger entries are untouched.
+#[tauri::command]
+pub fn revoke_consent(consent_id: String, db: State<'_, Database>) -> Result<(), AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::revoke_consent(&conn, &consent_id, &chrono::Utc::now().to_rfc3339())
+}
+
+/// List an agent's consent grants (active only by default).
+#[tauri::command]
+pub fn list_consents(
+    agent_id: String,
+    include_revoked: Option<bool>,
+    db: State<'_, Database>,
+) -> Result<Vec<ConsentGrant>, AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::list_consents(&conn, &agent_id, !include_revoked.unwrap_or(false))
+}
+
+/// The per-action privacy ledger for an agent (newest first).
+#[tauri::command]
+pub fn get_agent_ledger(
+    agent_id: String,
+    limit: Option<i64>,
+    db: State<'_, Database>,
+) -> Result<Vec<LedgerEntry>, AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    store::list_ledger(&conn, &agent_id, limit.unwrap_or(200))
+}
+
+/// A user-facing summary of exactly what an agent has sent off the device.
+#[tauri::command]
+pub fn get_agent_egress_summary(
+    agent_id: String,
+    db: State<'_, Database>,
+) -> Result<EgressSummary, AppError> {
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {e}")))?;
+    let entries = store::list_ledger(&conn, &agent_id, 10_000)?;
+    Ok(ledger::summarize_egress(&entries))
 }
 
 /// List an agent's findings (its persistent memory), newest first.

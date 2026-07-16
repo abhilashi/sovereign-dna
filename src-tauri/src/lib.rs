@@ -116,6 +116,12 @@ pub fn run() {
             commands::agents::get_agent_runs,
             commands::agents::get_agent_unseen_count,
             commands::agents::mark_agent_finding_seen,
+            // Agent privacy & consent ledger (Phase 3.7)
+            commands::agents::grant_consent,
+            commands::agents::revoke_consent,
+            commands::agents::list_consents,
+            commands::agents::get_agent_ledger,
+            commands::agents::get_agent_egress_summary,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
