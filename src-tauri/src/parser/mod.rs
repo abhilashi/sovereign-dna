@@ -147,6 +147,13 @@ pub fn parser_for_format(format: &str) -> Option<Box<dyn GenomeParser>> {
     match format {
         "23andme_v5" | "23andme_v3" => Some(Box::new(twentythree::TwentyThreeParser)),
         "ancestry" => Some(Box::new(ancestry::AncestryParser)),
+        // LivingDNA, tellmeGen and Genes for Good all export the same
+        // 23andMe-style tab-delimited `rsid<TAB>chromosome<TAB>position<TAB>genotype`
+        // layout, so they share the TwentyThreeParser — only their provenance
+        // label (from `detect_format`) differs.
+        "livingdna" | "tellmegen" | "genesforgood" => {
+            Some(Box::new(twentythree::TwentyThreeParser))
+        }
         "vcf" => Some(Box::new(vcf::VcfParser)),
         "myheritage" | "ftdna" => Some(Box::new(csvarray::CsvArrayParser)),
         _ => None,
@@ -155,7 +162,7 @@ pub fn parser_for_format(format: &str) -> Option<Box<dyn GenomeParser>> {
 
 /// Detect the file format by inspecting header content.
 /// Returns one of: "23andme_v5", "23andme_v3", "ancestry", "vcf",
-/// "myheritage", "ftdna", "unknown".
+/// "myheritage", "ftdna", "livingdna", "tellmegen", "genesforgood", "unknown".
 pub fn detect_format(content: &str) -> String {
     // Take the first few KB for detection
     let header: String = content.chars().take(4096).collect();
@@ -187,6 +194,34 @@ pub fn detect_format(content: &str) -> String {
             return "ftdna".to_string();
         }
         break; // only inspect the first meaningful line
+    }
+
+    // ── Consumer array formats that share the 23andMe tab-delimited shape ──
+    //
+    // LivingDNA, tellmeGen and Genes for Good all export the exact
+    // `rsid<TAB>chromosome<TAB>position<TAB>genotype` layout 23andMe uses; they
+    // differ only by a provider token in their comment header. Detect them by
+    // that token *before* the generic 23andMe block so a Genes-for-Good
+    // `*_23andMe.txt` export (whose header literally mentions "23andMe") is still
+    // attributed to Genes for Good. All three route to the TwentyThreeParser.
+    //
+    // A headerless export of any of these (e.g. some tellmeGen dumps carry only
+    // the bare `# rsid chromosome position genotype` line) simply falls through
+    // to the generic 23andMe detection below and still parses correctly — only
+    // the provenance label is the generic one in that case.
+    if header.contains("Living DNA") || header.contains("LivingDNA") {
+        return "livingdna".to_string();
+    }
+    if header.contains("Genes for Good")
+        || header.contains("Genes For Good")
+        || header.contains("genesforgood")
+        || header.contains("GenesForGood")
+    {
+        return "genesforgood".to_string();
+    }
+    if header.contains("tellmeGen") || header.contains("tellmegen") || header.contains("TellMeGen")
+    {
+        return "tellmegen".to_string();
     }
 
     // 23andMe v5 files typically have a header line with column names after comment lines
@@ -250,5 +285,41 @@ mod detect_tests {
             "23andme_v5"
         );
         assert_eq!(detect_format("random junk\n"), "unknown");
+    }
+
+    #[test]
+    fn detects_livingdna_tellmegen_genesforgood_by_provider_token() {
+        // LivingDNA: real exports carry this comment banner then the 23andMe
+        // tab layout.
+        let livingdna = "# Living DNA customer genotype data download file version: 1.0.1\n\
+# rsid\tchromosome\tposition\tgenotype\n\
+rs4477212\t1\t82154\tAA\n";
+        assert_eq!(detect_format(livingdna), "livingdna");
+
+        // Genes for Good ships a `*_23andMe.txt`; its header mentions "23andMe"
+        // but must still be attributed to Genes for Good (provider token wins).
+        let gfg = "# Genes for Good genotype data (23andMe format)\n\
+# rsid\tchromosome\tposition\tgenotype\n\
+rs11240777\t1\t798959\tGG\n";
+        assert_eq!(detect_format(gfg), "genesforgood");
+
+        // tellmeGen: named comment header.
+        let tmg = "# tellmeGen raw data export\n\
+# rsid\tchromosome\tposition\tgenotype\n\
+rs991757223\t1\t100177980\tDD\n";
+        assert_eq!(detect_format(tmg), "tellmegen");
+
+        // A *headerless* tellmeGen-shape file (only the bare column comment)
+        // still parses — it just falls back to the generic 23andMe label.
+        let bare = "# rsid\tchromosome\tposition\tgenotype\n\
+rs991757223\t1\t100177980\tDD\n";
+        assert_eq!(detect_format(bare), "23andme_v5");
+
+        // None of the new tokens may perturb the previously-supported formats.
+        assert_eq!(detect_format("##fileformat=VCFv4.2\n#CHROM\tPOS\n"), "vcf");
+        assert_eq!(
+            detect_format("# MyHeritage DNA raw data.\nRSID,CHROMOSOME,POSITION,RESULT\n"),
+            "myheritage"
+        );
     }
 }

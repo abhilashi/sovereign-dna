@@ -173,4 +173,39 @@ rs12124819\t1\t776546\tGG\n";
         assert_eq!(result.snps.len(), 4);
         assert_eq!(result.build.as_deref(), Some("GRCh37"));
     }
+
+    // Phase 1.4-cont: LivingDNA / tellmeGen / Genes for Good all use this exact
+    // 23andMe tab layout, so the same parser must handle their real-world quirks:
+    // I/D indel genotype notation and non-`rs` generic marker names (tellmeGen),
+    // and generic marker names (Genes for Good).
+    const TELLMEGEN: &str = "# tellmeGen raw data export\n\
+# reference build 37\n\
+# rsid\tchromosome\tposition\tgenotype\n\
+rs991757223\t1\t100177980\tDD\n\
+1KG_1_109440678\t1\t109440678\tII\n\
+rs750385149\t1\t109479801\tID\n\
+rs780371591\t1\t110655430\t--\n";
+
+    #[test]
+    fn parses_tellmegen_indels_and_generic_markers() {
+        let mut sink = VecSink::default();
+        let mut reader = Cursor::new(TELLMEGEN.as_bytes());
+        let summary = TwentyThreeParser
+            .parse_streaming(&mut reader, &mut sink)
+            .unwrap();
+
+        // 4 data rows, one no-call ("--") → 3 kept.
+        assert_eq!(summary.snp_count, 3);
+        assert_eq!(summary.build.as_deref(), Some("GRCh37"));
+
+        // I/D indel genotypes are preserved (upper-cased) verbatim.
+        assert_eq!(sink.snps[0].genotype, "DD");
+        assert_eq!(sink.snps[2].genotype, "ID");
+        // Non-`rs` generic marker names are kept as the rsID.
+        assert_eq!(sink.snps[1].rsid, "1KG_1_109440678");
+        assert_eq!(sink.snps[1].genotype, "II");
+        // Array-format invariants hold.
+        assert!(sink.snps[0].ref_allele.is_none());
+        assert!(sink.snps[0].sample.is_none());
+    }
 }
