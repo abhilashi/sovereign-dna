@@ -1,3 +1,4 @@
+mod agents;
 mod analysis;
 mod commands;
 mod db;
@@ -105,6 +106,16 @@ pub fn run() {
             commands::workbench::get_workbench_sessions,
             commands::workbench::save_workbench_chat,
             commands::workbench::get_workbench_chat,
+            // Agents (Phase 3)
+            commands::agents::save_agent,
+            commands::agents::list_agents,
+            commands::agents::get_agent,
+            commands::agents::delete_agent,
+            commands::agents::run_agent_now,
+            commands::agents::get_agent_findings,
+            commands::agents::get_agent_runs,
+            commands::agents::get_agent_unseen_count,
+            commands::agents::mark_agent_finding_seen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
