@@ -6,6 +6,7 @@ mod parser;
 mod reference;
 mod report;
 mod research;
+mod skills;
 
 use tauri::Manager;
 
