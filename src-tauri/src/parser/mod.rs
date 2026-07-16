@@ -1,5 +1,6 @@
 pub mod ancestry;
 pub mod csvarray;
+pub mod gvcf;
 pub mod streaming;
 pub mod twentythree;
 pub mod vcf;
@@ -155,19 +156,82 @@ pub fn parser_for_format(format: &str) -> Option<Box<dyn GenomeParser>> {
             Some(Box::new(twentythree::TwentyThreeParser))
         }
         "vcf" => Some(Box::new(vcf::VcfParser)),
+        "gvcf" => Some(Box::new(gvcf::GvcfParser)),
         "myheritage" | "ftdna" => Some(Box::new(csvarray::CsvArrayParser)),
         _ => None,
     }
 }
 
+/// Raw sequencing read / alignment formats that carry reads or aligned reads,
+/// not called variants. They cannot be turned into genotypes without running a
+/// secondary-analysis (alignment + variant-calling) pipeline, which is out of
+/// scope for direct import. Detection still recognizes them so the UI can give
+/// a precise, actionable message instead of a generic "unknown format" error.
+///
+/// Returns a human-readable description for the format id, or `None` if the id
+/// is not a raw sequencing/alignment format.
+pub fn sequencing_read_format_label(format: &str) -> Option<&'static str> {
+    match format {
+        "fastq" => Some("FASTQ (raw sequencing reads)"),
+        "bam" => Some("BAM (aligned reads)"),
+        "cram" => Some("CRAM (reference-compressed aligned reads)"),
+        "sam" => Some("SAM (aligned reads)"),
+        _ => None,
+    }
+}
+
 /// Detect the file format by inspecting header content.
-/// Returns one of: "23andme_v5", "23andme_v3", "ancestry", "vcf",
-/// "myheritage", "ftdna", "livingdna", "tellmegen", "genesforgood", "unknown".
+/// Returns one of: "23andme_v5", "23andme_v3", "ancestry", "vcf", "gvcf",
+/// "myheritage", "ftdna", "livingdna", "tellmegen", "genesforgood", "fastq",
+/// "bam", "cram", "sam", "unknown".
 pub fn detect_format(content: &str) -> String {
     // Take the first few KB for detection
     let header: String = content.chars().take(4096).collect();
 
+    // ── Raw sequencing read / alignment formats (Phase 1.5, bounded) ──
+    //
+    // These are detected only so we can return a precise "needs variant calling
+    // first" message rather than a generic "unknown". BAM/CRAM magic is checked
+    // against the *decompressed* stream (BAM is BGZF; the streaming layer has
+    // already inflated it before detection runs).
+    if header.starts_with("BAM\u{1}") {
+        return "bam".to_string();
+    }
+    if header.starts_with("CRAM") {
+        return "cram".to_string();
+    }
+    // SAM: a tab-delimited alignment header line (`@HD`/`@SQ`/`@RG`/`@PG`).
+    if header.starts_with("@HD\t")
+        || header.starts_with("@SQ\t")
+        || header.starts_with("@RG\t")
+        || header.starts_with("@PG\t")
+    {
+        return "sam".to_string();
+    }
+    // FASTQ: a 4-line record — `@id` / sequence / `+` / qualities. Detect the
+    // `@`-prefixed id line followed (within the peeked header) by a `+`
+    // separator line, which no genotype text format produces.
+    if header.starts_with('@') {
+        let mut lines = header.lines();
+        let _id = lines.next();
+        let _seq = lines.next();
+        if lines.next().map(|l| l.starts_with('+')).unwrap_or(false) {
+            return "fastq".to_string();
+        }
+    }
+
     if header.starts_with("##fileformat=VCF") {
+        // A gVCF is a VCF that additionally records reference blocks via the
+        // symbolic `<NON_REF>` / `<*>` allele. GATK declares it with an
+        // `##ALT=<ID=NON_REF…>` meta line and `##GVCFBlock…` lines; both live in
+        // the header, so we can distinguish gVCF from plain VCF up front and use
+        // the reference-block-aware parser.
+        if header.contains("NON_REF")
+            || header.contains("GVCFBlock")
+            || header.contains("##ALT=<ID=*")
+        {
+            return "gvcf".to_string();
+        }
         return "vcf".to_string();
     }
 
@@ -321,5 +385,35 @@ rs991757223\t1\t100177980\tDD\n";
             detect_format("# MyHeritage DNA raw data.\nRSID,CHROMOSOME,POSITION,RESULT\n"),
             "myheritage"
         );
+    }
+
+    #[test]
+    fn detects_gvcf_vs_plain_vcf() {
+        // gVCF: declared via the NON_REF symbolic ALT + GVCFBlock meta lines.
+        let gvcf = "##fileformat=VCFv4.2\n\
+##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele\">\n\
+##GVCFBlock0-1=minGQ=0(inclusive),maxGQ=1(exclusive)\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n";
+        assert_eq!(detect_format(gvcf), "gvcf");
+
+        // Plain VCF (no gVCF markers) must still be "vcf".
+        let vcf = "##fileformat=VCFv4.2\n##reference=GRCh38\n#CHROM\tPOS\tID\tREF\tALT\n";
+        assert_eq!(detect_format(vcf), "vcf");
+    }
+
+    #[test]
+    fn detects_raw_sequencing_formats() {
+        // BAM/CRAM by binary magic (checked post-decompression by the caller).
+        assert_eq!(detect_format("BAM\u{1}\u{0}\u{0}\u{0}"), "bam");
+        assert_eq!(detect_format("CRAM\u{3}\u{0}"), "cram");
+        // SAM alignment header.
+        assert_eq!(detect_format("@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:1\tLN:249\n"), "sam");
+        // FASTQ 4-line record.
+        assert_eq!(
+            detect_format("@SEQ_ID\nGATTACAGATTACA\n+\n!''*((((***+))\n"),
+            "fastq"
+        );
+        // A `@`-led line that is NOT a FASTQ record must not be misdetected.
+        assert_eq!(detect_format("@something\nnot a fastq\nno plus line\n"), "unknown");
     }
 }

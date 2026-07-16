@@ -129,9 +129,17 @@ pub async fn import_genome(
     if format == "unknown" {
         return Err(AppError::Parse(
             "Unable to detect file format. Supported formats: 23andMe, AncestryDNA, \
-MyHeritage, FamilyTreeDNA, LivingDNA, tellmeGen, Genes for Good, VCF."
+MyHeritage, FamilyTreeDNA, LivingDNA, tellmeGen, Genes for Good, VCF, gVCF."
                 .to_string(),
         ));
+    }
+
+    if let Some(label) = crate::parser::sequencing_read_format_label(&format) {
+        return Err(AppError::Parse(format!(
+            "This file is {label}, which contains sequencing reads rather than \
+called variants. Run a variant-calling pipeline to produce a VCF/gVCF, then \
+import that."
+        )));
     }
 
     let parser = crate::parser::parser_for_format(&format)
