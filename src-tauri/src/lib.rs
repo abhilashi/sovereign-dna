@@ -3,6 +3,12 @@ mod analysis;
 mod commands;
 mod db;
 mod error;
+/// Phase 4 — privacy-preserving federated collective intelligence.
+/// **[PROTOTYPE/EXPERIMENTAL — inert by default]**: the pure modules compile so
+/// they are type-checked and unit-tested, but nothing invokes them and no Tauri
+/// command is wired in unless the `federated-prototype` feature is enabled. A
+/// real launch is legally gated (DPIA + legal review + independent privacy audit).
+mod federated;
 mod parser;
 mod reference;
 mod report;

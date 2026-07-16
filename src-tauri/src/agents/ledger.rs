@@ -42,12 +42,18 @@ pub enum ActionKind {
     LlmRemote,
     /// Raise a desktop notification (local).
     Notify,
+    /// Contribute a **differentially-private, secure-aggregated** model update to
+    /// the (prototype) federated network — Phase 4.8. Only DP-noised aggregate
+    /// metadata and public rsIDs may accompany it; never a genotype or a
+    /// per-individual clear gradient (enforced by [`Egress::assert_public_only`]
+    /// and `crate::federated::boundary`).
+    FederatedUpdate,
 }
 
 impl ActionKind {
     /// Whether this kind *inherently* sends bytes off the device to a remote host.
     pub fn is_remote(&self) -> bool {
-        matches!(self, ActionKind::LlmRemote)
+        matches!(self, ActionKind::LlmRemote | ActionKind::FederatedUpdate)
             || matches!(self, ActionKind::QueryReference | ActionKind::QueryPubMed)
     }
 }
