@@ -16,6 +16,15 @@ pub struct Genome {
     pub imported_at: String,
     pub snp_count: i64,
     pub build: Option<String>,
+    /// Human-readable source label, e.g. "23andMe (v5 array)". (Phase 1.9)
+    #[serde(default)]
+    pub source_label: Option<String>,
+    /// Total input lines seen during import. (Phase 1.9)
+    #[serde(default)]
+    pub total_lines: Option<i64>,
+    /// Lines skipped (comments, headers, no-calls, malformed). (Phase 1.9)
+    #[serde(default)]
+    pub skipped_lines: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,6 +36,17 @@ pub struct SnpRow {
     pub chromosome: String,
     pub position: i64,
     pub genotype: String,
+    /// VCF reference allele; `None` for genotyping-array formats. (Phase 1.3)
+    #[serde(default)]
+    pub ref_allele: Option<String>,
+    /// VCF alternate allele(s) the genotype is called against; `None` for
+    /// array formats. (Phase 1.3)
+    #[serde(default)]
+    pub alt_allele: Option<String>,
+    /// Originating sample name (multi-sample VCF); `None` for array formats.
+    /// (Phase 1.3)
+    #[serde(default)]
+    pub sample: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,9 +100,44 @@ pub fn insert_genome(
     Ok(conn.last_insert_rowid())
 }
 
+/// Finalize a genome row's statistics **and** its Phase 1.9 provenance metadata
+/// (source label + line counts) after a streaming import.
+///
+/// Streaming ingestion inserts the `genomes` row up front (before the SNP count,
+/// reference build, or quality stats are known) so that SNPs can be written
+/// incrementally with a valid `genome_id`; this updates the row once the stream
+/// completes.
+#[allow(clippy::too_many_arguments)]
+pub fn update_genome_provenance(
+    conn: &Connection,
+    genome_id: i64,
+    snp_count: i64,
+    build: Option<&str>,
+    source_label: &str,
+    total_lines: i64,
+    skipped_lines: i64,
+) -> Result<(), AppError> {
+    conn.execute(
+        "UPDATE genomes
+            SET snp_count = ?2, build = ?3, source_label = ?4,
+                total_lines = ?5, skipped_lines = ?6
+          WHERE id = ?1",
+        rusqlite::params![
+            genome_id,
+            snp_count,
+            build,
+            source_label,
+            total_lines,
+            skipped_lines
+        ],
+    )?;
+    Ok(())
+}
+
 pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT id, filename, format, imported_at, snp_count, build FROM genomes ORDER BY imported_at DESC",
+        "SELECT id, filename, format, imported_at, snp_count, build, \
+source_label, total_lines, skipped_lines FROM genomes ORDER BY imported_at DESC",
     )?;
 
     let genomes = stmt
@@ -94,6 +149,9 @@ pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
                 imported_at: row.get(3)?,
                 snp_count: row.get(4)?,
                 build: row.get(5)?,
+                source_label: row.get(6)?,
+                total_lines: row.get(7)?,
+                skipped_lines: row.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -103,7 +161,8 @@ pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
 
 pub fn get_genome(conn: &Connection, id: i64) -> Result<Genome, AppError> {
     conn.query_row(
-        "SELECT id, filename, format, imported_at, snp_count, build FROM genomes WHERE id = ?1",
+        "SELECT id, filename, format, imported_at, snp_count, build, \
+source_label, total_lines, skipped_lines FROM genomes WHERE id = ?1",
         [id],
         |row| {
             Ok(Genome {
@@ -113,6 +172,9 @@ pub fn get_genome(conn: &Connection, id: i64) -> Result<Genome, AppError> {
                 imported_at: row.get(3)?,
                 snp_count: row.get(4)?,
                 build: row.get(5)?,
+                source_label: row.get(6)?,
+                total_lines: row.get(7)?,
+                skipped_lines: row.get(8)?,
             })
         },
     )
@@ -146,8 +208,9 @@ pub fn insert_snps_batch(
 
     {
         let mut stmt = tx.prepare_cached(
-            "INSERT INTO snps (genome_id, rsid, chromosome, position, genotype)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO snps
+                (genome_id, rsid, chromosome, position, genotype, ref_allele, alt_allele, sample)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         )?;
 
         for snp in snps {
@@ -157,6 +220,9 @@ pub fn insert_snps_batch(
                 snp.chromosome,
                 snp.position,
                 snp.genotype,
+                snp.ref_allele,
+                snp.alt_allele,
+                snp.sample,
             ])?;
         }
     }
@@ -235,7 +301,7 @@ pub fn get_snps_paginated(
 
     // Get paginated rows
     let query_sql = format!(
-        "SELECT id, genome_id, rsid, chromosome, position, genotype
+        "SELECT id, genome_id, rsid, chromosome, position, genotype, ref_allele, alt_allele, sample
          FROM snps WHERE {}
          ORDER BY chromosome, position
          LIMIT ?{} OFFSET ?{}",
@@ -257,6 +323,9 @@ pub fn get_snps_paginated(
                 chromosome: row.get(3)?,
                 position: row.get(4)?,
                 genotype: row.get(5)?,
+                ref_allele: row.get(6)?,
+                alt_allele: row.get(7)?,
+                sample: row.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -270,7 +339,7 @@ pub fn get_snp_by_rsid(
     rsid: &str,
 ) -> Result<SnpRow, AppError> {
     conn.query_row(
-        "SELECT id, genome_id, rsid, chromosome, position, genotype
+        "SELECT id, genome_id, rsid, chromosome, position, genotype, ref_allele, alt_allele, sample
          FROM snps WHERE genome_id = ?1 AND rsid = ?2",
         rusqlite::params![genome_id, rsid],
         |row| {
@@ -281,6 +350,9 @@ pub fn get_snp_by_rsid(
                 chromosome: row.get(3)?,
                 position: row.get(4)?,
                 genotype: row.get(5)?,
+                ref_allele: row.get(6)?,
+                alt_allele: row.get(7)?,
+                sample: row.get(8)?,
             })
         },
     )
