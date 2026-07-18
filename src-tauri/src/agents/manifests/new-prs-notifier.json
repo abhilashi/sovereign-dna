@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "org.sovereigndna.agents.new-prs-notifier",
+  "version": "1.0.0",
+  "name": "New-PRS Notifier",
+  "description": "Notifies you when the GWAS catalog updates so polygenic scores can be recomputed.",
+  "skillIds": [],
+  "dataScope": {
+    "rsids": [],
+    "topics": ["polygenic risk score", "GWAS"]
+  },
+  "llm": {
+    "provider": "none"
+  },
+  "trigger": {
+    "kind": "on_reference_update",
+    "source": "gwas_catalog"
+  },
+  "templateId": "org.sovereigndna.agents.new-prs-notifier",
+  "instructions": "When the GWAS catalog updates, note that polygenic scores may be recomputed.",
+  "disclaimer": "Educational only. Polygenic scores have limited transferability across ancestries."
+}

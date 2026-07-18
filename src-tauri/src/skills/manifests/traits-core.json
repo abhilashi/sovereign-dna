@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "id": "org.sovereigndna.traits.core",
+  "version": "1.0.0",
+  "name": "Core Traits Panel",
+  "description": "Well-characterised appearance, athletic and nutrition traits from single well-replicated variants. Migrated verbatim from the app's original hardcoded traits module.",
+  "category": "Traits",
+  "method": "genotype_map",
+  "referenceDeps": [],
+  "evidenceTier": "community",
+  "disclaimer": "Trait predictions are simplified single-variant heuristics for educational purposes only and are not medical, diagnostic, or ancestry advice.",
+  "citations": [
+    "SNPedia rs12913832 (HERC2)",
+    "SNPedia rs1815739 (ACTN3)",
+    "SNPedia rs671 (ALDH2)",
+    "SNPedia rs713598 (TAS2R38)"
+  ],
+  "variants": [
+    {
+      "rsid": "rs12913832",
+      "label": "Eye Color",
+      "category": "Appearance",
+      "description": "HERC2 gene variant is the primary determinant of blue vs. brown eye color",
+      "populationFrequency": 0.25,
+      "genotypes": [
+        { "genotype": "GG", "prediction": "Likely brown eyes", "confidence": 0.85, "effect": "GG genotype strongly associated with brown eyes" },
+        { "genotype": "AG", "prediction": "Possibly green or hazel eyes", "confidence": 0.6, "effect": "AG genotype associated with variable eye color" },
+        { "genotype": "AA", "prediction": "Likely blue eyes", "confidence": 0.8, "effect": "AA genotype strongly associated with blue eyes" }
+      ]
+    },
+    {
+      "rsid": "rs1800407",
+      "label": "Eye Color (modifier)",
+      "category": "Appearance",
+      "description": "OCA2 variant modifies eye color determination",
+      "populationFrequency": 0.08,
+      "genotypes": [
+        { "genotype": "TT", "prediction": "Supports blue eye color", "confidence": 0.7, "effect": "TT associated with blue eyes" },
+        { "genotype": "CT", "prediction": "Supports intermediate eye color", "confidence": 0.5, "effect": "Heterozygous for eye color variant" },
+        { "genotype": "CC", "prediction": "Supports brown eye color", "confidence": 0.7, "effect": "CC associated with brown eyes" }
+      ]
+    },
+    {
+      "rsid": "rs1805007",
+      "label": "Red Hair",
+      "category": "Appearance",
+      "description": "MC1R gene variant strongly associated with red hair and fair skin",
+      "populationFrequency": 0.1,
+      "genotypes": [
+        { "genotype": "TT", "prediction": "Likely red hair or carrier", "confidence": 0.8, "effect": "Homozygous MC1R variant, associated with red hair" },
+        { "genotype": "CT", "prediction": "Possible red hair carrier", "confidence": 0.5, "effect": "Heterozygous MC1R variant" },
+        { "genotype": "CC", "prediction": "Unlikely red hair from this variant", "confidence": 0.7, "effect": "Wild-type MC1R" }
+      ]
+    },
+    {
+      "rsid": "rs1815739",
+      "label": "Muscle Fiber Type",
+      "category": "Athletic Performance",
+      "description": "ACTN3 gene determines alpha-actinin-3 presence in fast-twitch muscle fibers",
+      "populationFrequency": 0.18,
+      "genotypes": [
+        { "genotype": "CC", "prediction": "Sprint/power muscle type", "confidence": 0.75, "effect": "CC genotype: functional alpha-actinin-3 protein, favors fast-twitch muscle" },
+        { "genotype": "CT", "prediction": "Mixed muscle type", "confidence": 0.6, "effect": "CT genotype: intermediate muscle fiber composition" },
+        { "genotype": "TT", "prediction": "Endurance muscle type", "confidence": 0.75, "effect": "TT genotype: alpha-actinin-3 deficiency, favors slow-twitch/endurance" }
+      ]
+    },
+    {
+      "rsid": "rs762551",
+      "label": "Caffeine Metabolism",
+      "category": "Nutrition",
+      "description": "CYP1A2 enzyme activity determines how quickly you metabolize caffeine",
+      "populationFrequency": 0.46,
+      "genotypes": [
+        { "genotype": "AA", "prediction": "Fast caffeine metabolizer", "confidence": 0.8, "effect": "AA genotype: rapid caffeine metabolism via CYP1A2" },
+        { "genotype": "AC", "prediction": "Moderate caffeine metabolizer", "confidence": 0.7, "effect": "AC genotype: intermediate caffeine metabolism" },
+        { "genotype": "CC", "prediction": "Slow caffeine metabolizer", "confidence": 0.8, "effect": "CC genotype: slow caffeine metabolism, higher sensitivity" }
+      ]
+    },
+    {
+      "rsid": "rs671",
+      "label": "Alcohol Flush Reaction",
+      "category": "Nutrition",
+      "description": "ALDH2 variant causes acetaldehyde accumulation and facial flushing after alcohol",
+      "populationFrequency": 0.08,
+      "genotypes": [
+        { "genotype": "GG", "prediction": "Normal alcohol metabolism", "confidence": 0.85, "effect": "GG genotype: functional ALDH2 enzyme" },
+        { "genotype": "AG", "prediction": "Alcohol flush reaction likely", "confidence": 0.8, "effect": "AG genotype: reduced ALDH2 activity, flush reaction" },
+        { "genotype": "AA", "prediction": "Strong alcohol flush reaction", "confidence": 0.9, "effect": "AA genotype: very low ALDH2 activity, severe flush" }
+      ]
+    },
+    {
+      "rsid": "rs713598",
+      "label": "Bitter Taste Perception",
+      "category": "Nutrition",
+      "description": "TAS2R38 gene determines sensitivity to bitter compounds like PTC and PROP",
+      "populationFrequency": 0.5,
+      "genotypes": [
+        { "genotype": "GG", "prediction": "Likely bitter taster", "confidence": 0.7, "effect": "PAV haplotype component (taster)" },
+        { "genotype": "CG", "prediction": "Intermediate bitter taste", "confidence": 0.5, "effect": "Heterozygous taster variant" },
+        { "genotype": "CC", "prediction": "Likely non-taster", "confidence": 0.7, "effect": "AVI haplotype component (non-taster)" }
+      ]
+    },
+    {
+      "rsid": "rs1726866",
+      "label": "Bitter Taste Perception (modifier)",
+      "category": "Nutrition",
+      "description": "Additional TAS2R38 variant contributing to bitter taste sensitivity",
+      "populationFrequency": 0.45,
+      "genotypes": [
+        { "genotype": "CC", "prediction": "Supports taster phenotype", "confidence": 0.6, "effect": "TAS2R38 variant supporting taste sensitivity" },
+        { "genotype": "CT", "prediction": "Intermediate", "confidence": 0.4, "effect": "Heterozygous" },
+        { "genotype": "TT", "prediction": "Supports non-taster phenotype", "confidence": 0.6, "effect": "TAS2R38 non-taster variant" }
+      ]
+    },
+    {
+      "rsid": "rs10246939",
+      "label": "Bitter Taste Perception (modifier 2)",
+      "category": "Nutrition",
+      "description": "Third TAS2R38 variant for complete bitter taste haplotype",
+      "populationFrequency": 0.45,
+      "genotypes": [
+        { "genotype": "CC", "prediction": "Supports taster phenotype", "confidence": 0.6, "effect": "TAS2R38 variant supporting taste sensitivity" },
+        { "genotype": "CG", "prediction": "Intermediate", "confidence": 0.4, "effect": "Heterozygous" },
+        { "genotype": "GG", "prediction": "Supports non-taster phenotype", "confidence": 0.6, "effect": "TAS2R38 non-taster variant" }
+      ]
+    },
+    {
+      "rsid": "rs72921001",
+      "label": "Cilantro/Coriander Aversion",
+      "category": "Nutrition",
+      "description": "OR6A2 olfactory receptor variant associated with perceiving cilantro as soapy",
+      "populationFrequency": 0.15,
+      "genotypes": [
+        { "genotype": "CC", "prediction": "Likely enjoys cilantro", "confidence": 0.7, "effect": "CC genotype: typical cilantro perception" },
+        { "genotype": "CA", "prediction": "May perceive soapy taste", "confidence": 0.6, "effect": "CA genotype: partial soapy taste sensitivity" },
+        { "genotype": "AA", "prediction": "Likely perceives cilantro as soapy", "confidence": 0.8, "effect": "AA genotype: OR6A2 variant associated with soapy taste" }
+      ]
+    }
+  ]
+}
