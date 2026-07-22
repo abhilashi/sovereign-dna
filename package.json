@@ -3,6 +3,12 @@
   "private": false,
   "version": "0.1.0",
   "type": "module",
+  "keywords": [
+    "genomics",
+    "privacy",
+    "local-first",
+    "bnb-greenfield"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

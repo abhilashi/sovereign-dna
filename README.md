@@ -4,6 +4,8 @@
 
 SovereignDNA is a fully local DNA analysis application that turns your raw genetic data (23andMe, AncestryDNA, VCF) into actionable insights — without your genomic data ever leaving your machine.
 
+> **Ecosystem note:** SovereignDNA's local-first architecture is compatible with decentralized storage backends such as BNB Greenfield for users who want optional, user-controlled off-device backup of encrypted reports. No BNB Chain integration is implemented yet — the analysis pipeline runs fully offline today.
+
 ## Screenshots
 
 | Research Workbench | Analysis Results |
