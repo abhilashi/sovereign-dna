@@ -1,0 +1,3 @@
+## YYYY-MM-DD - Interactive Components Require Explicit Keyboard Handlers
+**Learning:** In React, adding 'onClick' to a generic 'div' or 'motion.div' does not automatically provide keyboard interactivity. Screen readers and keyboard users rely on elements to be accessible via 'Tab' (using 'tabIndex={0}'), correctly identified (using 'role="button"'), and usable via 'Enter' and 'Space' keys.
+**Action:** When creating custom interactive elements without semantic HTML buttons (like 'div'), attach an 'onKeyDown' handler mapping 'Enter' and 'Space' keys to the 'onClick' callback (with 'e.preventDefault()' for 'Space'), and conditionally apply 'role="button"' and 'tabIndex={0}'.
