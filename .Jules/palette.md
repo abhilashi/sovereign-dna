@@ -1,0 +1,3 @@
+## 2026-07-30 - Interactive Card Keyboard Accessibility
+**Learning:** When making non-semantic HTML elements (like `div` or `motion.div`) interactive, it's essential to spread accessibility props (e.g., `role="button"`, `tabIndex={0}`, `onKeyDown`) dynamically based on whether the interactive behavior (`onClick`) is present. In React with `framer-motion`, these standard HTML attributes can be safely grouped into a typed `HTMLMotionProps<"div">` object to keep the component's JSX markup clean while ensuring full keyboard accessibility for the interactive state without breaking the non-interactive state.
+**Action:** Always verify that custom interactive components can receive keyboard focus and be activated using Enter or Space keys.
