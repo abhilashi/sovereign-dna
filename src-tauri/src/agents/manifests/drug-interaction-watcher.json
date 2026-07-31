@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "org.sovereigndna.agents.drug-interaction-watcher",
+  "version": "1.0.0",
+  "name": "Drug-interaction Watcher",
+  "description": "Re-reviews your pharmacogenomic variants whenever the PharmGKB reference data updates.",
+  "skillIds": [],
+  "dataScope": {
+    "rsids": [],
+    "topics": ["pharmacogenomics", "CYP2D6", "CYP2C19"]
+  },
+  "llm": {
+    "provider": "local_ollama",
+    "model": null
+  },
+  "trigger": {
+    "kind": "on_reference_update",
+    "source": "pharmgkb"
+  },
+  "templateId": "org.sovereigndna.agents.drug-interaction-watcher",
+  "instructions": "When PharmGKB updates, summarise any changes relevant to the user's pharmacogenomic variants.",
+  "disclaimer": "Educational only. Never change medication without consulting a licensed clinician."
+}

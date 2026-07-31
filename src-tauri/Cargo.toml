@@ -8,6 +8,21 @@ repository = "https://github.com/anthropics/sovereign-dna"
 edition = "2021"
 rust-version = "1.77.2"
 
+[features]
+# Phase-4 federated collective-intelligence prototype. OFF by default: the pure
+# modules always compile (so CI type-checks them), but activating the (future)
+# command surface / network layer requires opting in. Real launch is legally
+# gated — see src/federated/mod.rs.
+federated-prototype = []
+
+# Phase-4 transport spike: activate the Rings-based transport adapter
+# (`federated::rings::RingsTransport`). OFF by default and independent of
+# `federated-prototype`. The pure adapter + JSON-RPC stub always compile (so CI
+# type-checks them); this flag gates *activation* and, in production, whether the
+# optional real rings-daemon RPC client is compiled in. RingsNetwork/rings is
+# GPL-3.0, so it is reached over a process-separation RPC boundary, never linked.
+rings-transport = []
+
 [lib]
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -33,3 +48,9 @@ tokio = { version = "1", features = ["full"] }
 flate2 = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
 futures-util = "0.3"
+ed25519-dalek = "2"
+sha2 = "0.10"
+wasmi = "0.40"
+
+[dev-dependencies]
+wat = "1"
