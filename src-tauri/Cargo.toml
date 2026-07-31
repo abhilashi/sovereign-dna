@@ -33,3 +33,9 @@ tokio = { version = "1", features = ["full"] }
 flate2 = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
 futures-util = "0.3"
+ed25519-dalek = "2"
+sha2 = "0.10"
+wasmi = "0.40"
+
+[dev-dependencies]
+wat = "1"
