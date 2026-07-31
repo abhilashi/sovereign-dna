@@ -5,7 +5,78 @@ use tauri::State;
 use crate::db::queries::{self, SnpRow};
 use crate::db::Database;
 use crate::error::AppError;
-use crate::parser;
+use crate::parser::streaming;
+use crate::parser::{ParsedSnp, SnpSink};
+
+/// Number of SNPs buffered before a batch is flushed to SQLite. Bounds the
+/// working-set memory during import to `BATCH_SIZE` rows regardless of file
+/// size — the key property that lets whole-genome VCFs import without OOM.
+const BATCH_SIZE: usize = 50_000;
+
+/// A [`SnpSink`] that streams parsed SNPs into SQLite in bounded batches.
+///
+/// The parser hands SNPs here one at a time; we buffer up to [`BATCH_SIZE`] and
+/// flush each batch inside a transaction, so neither the raw file nor the full
+/// SNP set is ever held in memory at once.
+struct DbBatchSink<'a> {
+    conn: &'a rusqlite::Connection,
+    genome_id: i64,
+    buffer: Vec<SnpRow>,
+    inserted: usize,
+    channel: &'a Channel<ImportProgress>,
+}
+
+impl<'a> DbBatchSink<'a> {
+    fn new(
+        conn: &'a rusqlite::Connection,
+        genome_id: i64,
+        channel: &'a Channel<ImportProgress>,
+    ) -> Self {
+        Self {
+            conn,
+            genome_id,
+            buffer: Vec::with_capacity(BATCH_SIZE),
+            inserted: 0,
+            channel,
+        }
+    }
+
+    fn flush(&mut self) -> Result<(), AppError> {
+        if self.buffer.is_empty() {
+            return Ok(());
+        }
+        queries::insert_snps_batch(self.conn, self.genome_id, &self.buffer)?;
+        self.inserted += self.buffer.len();
+        self.buffer.clear();
+        let _ = self.channel.send(ImportProgress {
+            phase: "storing".to_string(),
+            // Total is unknown while streaming; report a cumulative count.
+            progress: 0.6,
+            message: format!("Stored {} SNPs...", self.inserted),
+        });
+        Ok(())
+    }
+}
+
+impl<'a> SnpSink for DbBatchSink<'a> {
+    fn push(&mut self, snp: ParsedSnp) -> Result<(), AppError> {
+        self.buffer.push(SnpRow {
+            id: None,
+            genome_id: self.genome_id,
+            rsid: snp.rsid,
+            chromosome: snp.chromosome,
+            position: snp.position,
+            genotype: snp.genotype,
+            ref_allele: snp.ref_allele,
+            alt_allele: snp.alt_allele,
+            sample: snp.sample,
+        });
+        if self.buffer.len() >= BATCH_SIZE {
+            self.flush()?;
+        }
+        Ok(())
+    }
+}
 
 /// Progress update sent to the frontend during import.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,6 +95,11 @@ pub struct ImportResult {
     pub snp_count: usize,
     pub format: String,
     pub build: Option<String>,
+    /// Human-readable source label, e.g. "23andMe (v5 array)". (Phase 1.9)
+    pub source_label: String,
+    /// Plain-language provenance/quality warnings for the user; empty when the
+    /// import looks clean. (Phase 1.9)
+    pub warnings: Vec<String>,
     pub quality_summary: QualitySummary,
 }
 
@@ -43,143 +119,119 @@ pub async fn import_genome(
     db: State<'_, Database>,
     channel: Channel<ImportProgress>,
 ) -> Result<ImportResult, AppError> {
-    // Phase 1: Read file
+    // Phase 1: Open + detect format from a peeked header (no full-file read).
     let _ = channel.send(ImportProgress {
         phase: "reading".to_string(),
         progress: 0.0,
-        message: "Reading file...".to_string(),
+        message: "Opening file...".to_string(),
     });
 
-    let content = std::fs::read_to_string(&file_path)
-        .map_err(|e| AppError::Io(format!("Failed to read file {}: {}", file_path, e)))?;
+    let path = std::path::PathBuf::from(&file_path);
+    let file = std::fs::File::open(&path)
+        .map_err(|e| AppError::Io(format!("Failed to open file {}: {}", file_path, e)))?;
+    let (format, mut reader) = streaming::detect_and_wrap(file)?;
 
-    let _ = channel.send(ImportProgress {
-        phase: "reading".to_string(),
-        progress: 0.2,
-        message: format!("Read {} bytes", content.len()),
-    });
-
-    // Phase 2: Detect format
-    let format = parser::detect_format(&content);
     if format == "unknown" {
         return Err(AppError::Parse(
-            "Unable to detect file format. Supported formats: 23andMe, AncestryDNA, VCF."
+            "Unable to detect file format. Supported formats: 23andMe, AncestryDNA, \
+MyHeritage, FamilyTreeDNA, LivingDNA, tellmeGen, Genes for Good, VCF, gVCF."
                 .to_string(),
         ));
     }
 
+    if let Some(label) = crate::parser::sequencing_read_format_label(&format) {
+        return Err(AppError::Parse(format!(
+            "This file is {label}, which contains sequencing reads rather than \
+called variants. Run a variant-calling pipeline to produce a VCF/gVCF, then \
+import that."
+        )));
+    }
+
+    let parser = crate::parser::parser_for_format(&format)
+        .ok_or_else(|| AppError::Parse(format!("Unsupported file format: {}", format)))?;
+
     let _ = channel.send(ImportProgress {
         phase: "parsing".to_string(),
         progress: 0.3,
-        message: format!("Detected format: {}", format),
+        message: format!("Detected format: {}. Streaming...", format),
     });
 
-    // Phase 3: Parse
-    let parse_result = match format.as_str() {
-        "23andme_v5" | "23andme_v3" => parser::twentythree::parse_23andme(&content, &format)?,
-        "ancestry" => parser::ancestry::parse_ancestry(&content)?,
-        "vcf" => parser::vcf::parse_vcf(&content)?,
-        _ => {
-            return Err(AppError::Parse(format!(
-                "Unsupported file format: {}",
-                format
-            )));
-        }
-    };
-
-    let _ = channel.send(ImportProgress {
-        phase: "parsing".to_string(),
-        progress: 0.5,
-        message: format!("Parsed {} SNPs", parse_result.snps.len()),
-    });
-
-    let snp_count = parse_result.snps.len();
-
-    // Extract filename from path
-    let filename = std::path::Path::new(&file_path)
+    // Filename for the genome record.
+    let filename = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown")
         .to_string();
 
-    // Phase 4: Insert into database
-    let _ = channel.send(ImportProgress {
-        phase: "storing".to_string(),
-        progress: 0.6,
-        message: "Inserting genome record...".to_string(),
-    });
+    let conn = db
+        .0
+        .lock()
+        .map_err(|e| AppError::Database(format!("Failed to acquire database lock: {}", e)))?;
 
-    let conn = db.0.lock().map_err(|e| {
-        AppError::Database(format!("Failed to acquire database lock: {}", e))
-    })?;
+    // Insert the genome row up front with placeholder stats; SNPs stream in
+    // referencing this id, then we finalize the counts/build below.
+    let genome_id = queries::insert_genome(&conn, &filename, &format, 0, None)?;
 
-    let genome_id = queries::insert_genome(
-        &conn,
-        &filename,
-        &format,
-        snp_count as i64,
-        parse_result.build.as_deref(),
-    )?;
-
-    // Convert parsed SNPs to SnpRows for batch insert
-    let snp_rows: Vec<SnpRow> = parse_result
-        .snps
-        .iter()
-        .map(|s| SnpRow {
-            id: None,
-            genome_id,
-            rsid: s.rsid.clone(),
-            chromosome: s.chromosome.clone(),
-            position: s.position,
-            genotype: s.genotype.clone(),
-        })
-        .collect();
-
-    // Insert in batches for progress reporting
-    let batch_size = 50_000;
-    let total_batches = (snp_rows.len() + batch_size - 1) / batch_size;
-
-    for (i, chunk) in snp_rows.chunks(batch_size).enumerate() {
-        let progress = 0.6 + (0.35 * (i as f64 / total_batches as f64));
-        let _ = channel.send(ImportProgress {
-            phase: "storing".to_string(),
-            progress,
-            message: format!(
-                "Inserting SNPs batch {}/{}...",
-                i + 1,
-                total_batches
-            ),
-        });
-
-        queries::insert_snps_batch(&conn, genome_id, chunk)?;
+    // Phase 2+3: stream-parse straight into the DB in bounded batches.
+    let mut sink = DbBatchSink::new(&conn, genome_id, &channel);
+    let summary = match parser.parse_streaming(reader.as_mut(), &mut sink) {
+        Ok(s) => s,
+        Err(e) => {
+            // Roll back the partially-imported genome (snps cascade on delete).
+            let _ = queries::delete_genome(&conn, genome_id);
+            return Err(e);
+        }
+    };
+    // Flush any residual SNPs left in the final partial batch.
+    if let Err(e) = sink.flush() {
+        let _ = queries::delete_genome(&conn, genome_id);
+        return Err(e);
     }
+
+    let snp_count = summary.snp_count;
+
+    // Phase 1.9: derive human provenance + quality warnings.
+    let provenance = crate::parser::provenance::build_provenance(
+        &format,
+        summary.build.as_deref(),
+        summary.total_lines,
+        summary.skipped_lines,
+        snp_count,
+    );
+
+    // Finalize the genome row with the real count, detected build, and the
+    // per-genome provenance metadata.
+    queries::update_genome_provenance(
+        &conn,
+        genome_id,
+        snp_count as i64,
+        summary.build.as_deref(),
+        &provenance.source_label,
+        summary.total_lines as i64,
+        summary.skipped_lines as i64,
+    )?;
 
     let _ = channel.send(ImportProgress {
         phase: "complete".to_string(),
         progress: 1.0,
         message: format!(
-            "Import complete: {} SNPs from {} format",
-            snp_count, format
+            "Import complete: {} variants from {}",
+            snp_count, provenance.source_label
         ),
     });
-
-    let skip_rate = if parse_result.total_lines > 0 {
-        (parse_result.skipped_lines as f64 / parse_result.total_lines as f64 * 100.0).round()
-            / 100.0
-    } else {
-        0.0
-    };
 
     Ok(ImportResult {
         genome_id,
         snp_count,
         format,
-        build: parse_result.build,
+        build: summary.build,
+        source_label: provenance.source_label,
+        warnings: provenance.warnings,
         quality_summary: QualitySummary {
-            total_lines: parse_result.total_lines,
-            skipped_lines: parse_result.skipped_lines,
+            total_lines: summary.total_lines,
+            skipped_lines: summary.skipped_lines,
             valid_snps: snp_count,
-            skip_rate,
+            skip_rate: provenance.skip_rate,
         },
     })
 }

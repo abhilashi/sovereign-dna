@@ -171,9 +171,21 @@ export default function Import() {
                   <StepDot done />
                   <p className="text-sm text-text">
                     Imported <span className="font-mono font-semibold">{formatNumber(result.snpCount)}</span> variants
-                    <span className="text-text-muted"> · {result.format} · Build {result.build ?? 'Unknown'} · {formatPercentage(result.qualitySummary.skipRate)} skipped</span>
+                    <span className="text-text-muted"> · {result.sourceLabel} · Build {result.build ?? 'Unknown'} · {formatPercentage(result.qualitySummary.skipRate)} skipped</span>
                   </p>
                 </div>
+
+                {/* Phase 1.9: provenance / quality warnings */}
+                {result.warnings.length > 0 && (
+                  <div className="ml-6 mb-3 space-y-1.5">
+                    {result.warnings.map((w, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-risk-elevated">
+                        <span aria-hidden>&#9888;</span>
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Step 2: Reference databases */}
                 {stage === 'downloading_refs' && (
