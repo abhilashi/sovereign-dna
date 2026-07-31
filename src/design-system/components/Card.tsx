@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 
 interface CardProps {
@@ -10,10 +10,24 @@ interface CardProps {
 export default function Card({ children, className = '', onClick }: CardProps) {
   const interactive = !!onClick;
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (interactive && (e.key === 'Enter' || e.key === ' ')) {
+      if (e.key === ' ') {
+        e.preventDefault();
+      }
+      onClick?.();
+    }
+  };
+
   return (
     <motion.div
-      className={`bg-surface border border-border rounded-sm p-5 ${interactive ? 'cursor-pointer' : ''} ${className}`}
+      className={`bg-surface border border-border rounded-sm p-5 ${
+        interactive ? 'cursor-pointer focus:outline-none focus:border-accent' : ''
+      } ${className}`}
       onClick={onClick}
+      onKeyDown={interactive ? handleKeyDown : undefined}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
       whileHover={interactive ? { scale: 1.005, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' } : undefined}
       transition={{ duration: 0.15, ease: 'easeOut' }}
     >
