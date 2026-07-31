@@ -1,0 +1,3 @@
+## 2024-06-25 - Auto-focusing inputs for interactive text injectors
+**Learning:** When building interfaces with "Quick Prompts" or components that inject text into an input field (like Karyogram findings in the Research Workbench) without immediately auto-submitting, it is critical for UX to automatically focus the primary text input immediately after the injection. This allows users to press Enter right away or seamlessly modify the query without having to reposition their focus manually.
+**Action:** Use `setTimeout(() => inputRef.current?.focus(), 0)` when injecting text to ensure the focus shifts correctly after the render cycle completes.
