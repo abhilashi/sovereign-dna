@@ -1,0 +1,3 @@
+## 2024-04-02 - Seamless Keyboard Continuation with Quick Prompts
+**Learning:** Users who click "Quick Prompts" (pill buttons that pre-fill an input) often want to immediately press Enter to submit, or seamlessly modify the query. If the input does not automatically gain focus after the click, it forces the user to reposition their mouse and click the input field, which breaks the flow and reduces accessibility/usability.
+**Action:** When implementing quick prompts or any click-to-fill interaction for a primary input, always attach an automatic focus event (`inputRef.current?.focus()`) to the target input field on click.
