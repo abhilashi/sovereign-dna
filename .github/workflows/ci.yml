@@ -36,5 +36,9 @@ jobs:
         working-directory: src-tauri
         run: cargo check
 
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --lib
+
       - name: Lint
         run: npm run lint -- --max-warnings 0 || true
