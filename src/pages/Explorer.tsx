@@ -200,6 +200,7 @@ export default function Explorer() {
                       <button
                         onClick={() => setSelectedSnp(null)}
                         className="text-xs text-text-muted hover:text-text"
+                        aria-label="Close details"
                       >
                         Close
                       </button>
