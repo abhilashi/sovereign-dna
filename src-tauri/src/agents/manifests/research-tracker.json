@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "org.sovereigndna.agents.research-tracker",
+  "version": "1.0.0",
+  "name": "Research Tracker",
+  "description": "Watches PubMed for new research touching your chosen variants/topics and summarises what's new.",
+  "skillIds": [],
+  "dataScope": {
+    "rsids": [],
+    "topics": ["APOE", "BRCA1", "BRCA2"]
+  },
+  "llm": {
+    "provider": "local_ollama",
+    "model": null
+  },
+  "trigger": {
+    "kind": "on_new_matched_article"
+  },
+  "templateId": "org.sovereigndna.agents.research-tracker",
+  "instructions": "Summarise newly matched PubMed articles for the user in 2-4 sentences, grouped by topic. Note only what is new since the last run.",
+  "disclaimer": "Educational research summaries only. Not medical advice."
+}

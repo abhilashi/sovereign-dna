@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "org.sovereigndna.agents.trait-reviewer",
+  "version": "1.0.0",
+  "name": "Trait Reviewer",
+  "description": "Re-runs your core trait panel on a weekly cadence and logs any findings.",
+  "skillIds": ["org.sovereigndna.traits.core"],
+  "dataScope": {
+    "rsids": [],
+    "topics": []
+  },
+  "llm": {
+    "provider": "local_ollama",
+    "model": null
+  },
+  "trigger": {
+    "kind": "interval",
+    "every_hours": 168
+  },
+  "templateId": "org.sovereigndna.agents.trait-reviewer",
+  "instructions": "Summarise the trait findings for the user, highlighting anything notable.",
+  "disclaimer": "Educational only. Genetic trait predictions are probabilistic, not diagnostic."
+}
