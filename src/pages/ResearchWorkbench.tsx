@@ -358,7 +358,7 @@ export default function ResearchWorkbench() {
       <div className="w-[200px] shrink-0 border-r border-border flex flex-col bg-surface">
           {/* New thread button */}
           <div className="px-3 py-2 border-b border-border">
-            <button onClick={startNewThread} className="w-full text-left px-2 py-1.5 text-[11px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent transition-colors">
+            <button onClick={startNewThread} className="w-full text-left px-2 py-1.5 text-[11px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-1">
               + New thread
             </button>
           </div>
@@ -367,7 +367,8 @@ export default function ResearchWorkbench() {
           <div className="flex-1 overflow-y-auto">
             {threads.map(t => (
               <button key={t.id} onClick={() => restoreThread(t)}
-                className={`w-full text-left px-3 py-2 border-b border-border transition-colors ${t.id === activeThreadId ? 'bg-accent/5 border-l-2 border-l-accent' : 'hover:bg-surface/80 border-l-2 border-l-transparent'}`}>
+                aria-current={t.id === activeThreadId ? 'page' : undefined}
+                className={`w-full text-left px-3 py-2 border-b border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${t.id === activeThreadId ? 'bg-accent/5 border-l-2 border-l-accent' : 'hover:bg-surface/80 border-l-2 border-l-transparent'}`}>
                 <p className="text-[11px] text-text truncate">{t.title}</p>
               </button>
             ))}
@@ -378,8 +379,12 @@ export default function ResearchWorkbench() {
             <div className="px-3 py-2 border-t border-border">
               <div className="flex gap-1">
                 <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveApiKey(); }}
-                  placeholder="Claude API key" className="flex-1 min-w-0 px-1.5 py-1 text-[9px] border border-border rounded-sm bg-white text-text focus:outline-none focus:border-accent font-mono" />
-                <button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()} className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0">OK</button>
+                  placeholder="Claude API key"
+                  aria-label="Claude API key"
+                  className="flex-1 min-w-0 px-1.5 py-1 text-[9px] border border-border rounded-sm bg-white text-text focus:outline-none focus:border-accent font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-1" />
+                <button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()}
+                  aria-label="Save API key"
+                  className="px-1.5 py-1 text-[9px] border border-border rounded-sm text-text-muted hover:text-accent disabled:opacity-30 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-1">OK</button>
               </div>
             </div>
           )}
@@ -435,8 +440,8 @@ export default function ResearchWorkbench() {
                   <p className="text-xs text-text-muted mb-4">Ask a question and we'll find your relevant variants, match them to research, and give you an analysis.</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {QUICK_PROMPTS.map(p => (
-                      <button key={p} onClick={() => { setQuery(p); }} disabled={loading}
-                        className="px-2.5 py-1 text-[10px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-50 transition-colors">{p}</button>
+                      <button key={p} onClick={() => { setQuery(p); inputRef.current?.focus(); }} disabled={loading}
+                        className="px-2.5 py-1 text-[10px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-1">{p}</button>
                     ))}
                   </div>
                 </div>
@@ -561,14 +566,17 @@ export default function ResearchWorkbench() {
         {/* Input bar */}
         <div className="border-t border-border px-4 py-2.5 flex items-center gap-2 shrink-0">
           <span className="w-4 h-4 rounded-full bg-risk-low flex items-center justify-center shrink-0" title="Processed locally">
-            <span className="text-white text-[7px]">{'\uD83D\uDD12'}</span>
+            <span className="text-white text-[7px]" aria-hidden="true">{'\uD83D\uDD12'}</span>
           </span>
           <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Ask about your genome..."
+            aria-label="Ask about your genome"
             disabled={loading || streaming}
             className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
           <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
-            className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
+            aria-label="Submit query"
+            title="Submit query (Enter)"
+            className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-1">{'\u2192'}</button>
         </div>
       </div>
     </div>
