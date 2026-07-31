@@ -80,6 +80,24 @@ pub fn insert_genome(
     Ok(conn.last_insert_rowid())
 }
 
+/// Finalize a genome row's statistics after a streaming import.
+///
+/// Streaming ingestion inserts the `genomes` row up front (before the SNP count
+/// or reference build are known) so that SNPs can be written incrementally with
+/// a valid `genome_id`; this updates the row once the stream completes.
+pub fn update_genome_stats(
+    conn: &Connection,
+    genome_id: i64,
+    snp_count: i64,
+    build: Option<&str>,
+) -> Result<(), AppError> {
+    conn.execute(
+        "UPDATE genomes SET snp_count = ?2, build = ?3 WHERE id = ?1",
+        rusqlite::params![genome_id, snp_count, build],
+    )?;
+    Ok(())
+}
+
 pub fn get_genomes(conn: &Connection) -> Result<Vec<Genome>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, filename, format, imported_at, snp_count, build FROM genomes ORDER BY imported_at DESC",
