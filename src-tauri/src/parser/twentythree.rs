@@ -1,113 +1,211 @@
-use csv::ReaderBuilder;
+use std::io::{BufRead, Cursor};
 
 use crate::error::AppError;
-use super::{ParseResult, ParsedSnp};
 
-/// Parse a 23andMe raw data file (both v3 and v5 formats).
+use super::streaming::detect_build_line;
+use super::{GenomeParser, ParseResult, ParseSummary, ParsedSnp, SnpSink, VecSink};
+
+/// Streaming parser for 23andMe raw data files (both v3 and v5 formats).
 ///
-/// Format: tab-delimited with header comments starting with `#`.
-/// Columns: rsid, chromosome, position, genotype.
-/// v5 files have an explicit header line after comments; v3 may not.
-pub fn parse_23andme(content: &str, detected_version: &str) -> Result<ParseResult, AppError> {
-    let mut snps = Vec::with_capacity(700_000);
-    let mut total_lines: usize = 0;
-    let mut skipped_lines: usize = 0;
-    let mut build: Option<String> = None;
+/// Format: tab-delimited, header/comment lines start with `#`.
+/// Columns: `rsid`, `chromosome`, `position`, `genotype`.
+pub struct TwentyThreeParser;
 
-    // Pre-scan comment lines for build information
-    for line in content.lines() {
-        if line.starts_with('#') {
-            if line.contains("build 37") || line.contains("GRCh37") || line.contains("hg19") {
-                build = Some("GRCh37".to_string());
-            } else if line.contains("build 38") || line.contains("GRCh38") || line.contains("hg38") {
-                build = Some("GRCh38".to_string());
-            } else if line.contains("build 36") || line.contains("GRCh36") || line.contains("hg18") {
-                build = Some("GRCh36".to_string());
+impl GenomeParser for TwentyThreeParser {
+    fn parse_streaming(
+        &self,
+        reader: &mut dyn BufRead,
+        sink: &mut dyn SnpSink,
+    ) -> Result<ParseSummary, AppError> {
+        let mut total_lines: usize = 0;
+        let mut skipped_lines: usize = 0;
+        let mut snp_count: usize = 0;
+        let mut build: Option<String> = None;
+
+        // One reusable line buffer — the parser never holds more than a single
+        // line in memory, no matter how large the file is.
+        let mut line = String::new();
+        loop {
+            line.clear();
+            let bytes = reader
+                .read_line(&mut line)
+                .map_err(|e| AppError::Io(e.to_string()))?;
+            if bytes == 0 {
+                break; // EOF
             }
-        }
-    }
-
-    // Filter out comment lines, collect data lines
-    let data_lines: String = content
-        .lines()
-        .filter(|line| {
             total_lines += 1;
             let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
+
+            if trimmed.is_empty() {
                 skipped_lines += 1;
-                return false;
+                continue;
             }
-            true
+
+            // Comment/header lines carry build metadata.
+            if trimmed.starts_with('#') {
+                skipped_lines += 1;
+                if build.is_none() {
+                    build = detect_build_line(trimmed);
+                }
+                continue;
+            }
+
+            let mut cols = trimmed.split('\t');
+            let rsid = cols.next().unwrap_or("").trim();
+            let chromosome = cols.next().unwrap_or("").trim();
+            let position_str = cols.next().unwrap_or("").trim();
+            let genotype = cols.next().unwrap_or("").trim();
+
+            if rsid.is_empty()
+                || chromosome.is_empty()
+                || position_str.is_empty()
+                || genotype.is_empty()
+            {
+                skipped_lines += 1;
+                continue;
+            }
+
+            // Skip a stray header row that wasn't `#`-prefixed.
+            if rsid == "rsid" || rsid == "# rsid" {
+                skipped_lines += 1;
+                continue;
+            }
+
+            let position: i64 = match position_str.parse() {
+                Ok(p) => p,
+                Err(_) => {
+                    skipped_lines += 1;
+                    continue;
+                }
+            };
+
+            // Skip no-calls / deletions.
+            if genotype == "--" || genotype == "00" {
+                skipped_lines += 1;
+                continue;
+            }
+
+            let chrom = chromosome
+                .strip_prefix("chr")
+                .unwrap_or(chromosome)
+                .to_uppercase();
+
+            sink.push(ParsedSnp {
+                rsid: rsid.to_string(),
+                chromosome: chrom,
+                position,
+                genotype: genotype.to_uppercase(),
+                // Genotyping-array formats have no REF/ALT or sample dimension.
+                ref_allele: None,
+                alt_allele: None,
+                sample: None,
+            })?;
+            snp_count += 1;
+        }
+
+        Ok(ParseSummary {
+            format: "23andme".to_string(),
+            build,
+            total_lines,
+            skipped_lines,
+            snp_count,
         })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    // Use the csv crate for efficient tab-delimited parsing
-    let mut rdr = ReaderBuilder::new()
-        .delimiter(b'\t')
-        .has_headers(false)
-        .flexible(true)
-        .from_reader(data_lines.as_bytes());
-
-    for result in rdr.records() {
-        let record = match result {
-            Ok(r) => r,
-            Err(_) => {
-                skipped_lines += 1;
-                continue;
-            }
-        };
-
-        if record.len() < 4 {
-            skipped_lines += 1;
-            continue;
-        }
-
-        let rsid = record[0].trim();
-        let chromosome = record[1].trim();
-        let position_str = record[2].trim();
-        let genotype = record[3].trim();
-
-        // Skip header-like rows
-        if rsid == "rsid" || rsid == "# rsid" {
-            skipped_lines += 1;
-            continue;
-        }
-
-        // Parse position as integer
-        let position: i64 = match position_str.parse() {
-            Ok(p) => p,
-            Err(_) => {
-                skipped_lines += 1;
-                continue;
-            }
-        };
-
-        // Skip entries with no genotype or marked as deleted/no-call
-        if genotype.is_empty() || genotype == "--" || genotype == "00" {
-            skipped_lines += 1;
-            continue;
-        }
-
-        // Normalize chromosome (remove "chr" prefix if present)
-        let chrom = chromosome
-            .strip_prefix("chr")
-            .unwrap_or(chromosome)
-            .to_uppercase();
-
-        snps.push(ParsedSnp {
-            rsid: rsid.to_string(),
-            chromosome: chrom,
-            position,
-            genotype: genotype.to_uppercase(),
-        });
     }
+}
 
+/// Parse a 23andMe raw data file from an in-memory string.
+///
+/// Backward-compatible convenience wrapper around the streaming
+/// [`TwentyThreeParser`]; it collects every SNP into a `Vec` via [`VecSink`],
+/// so it should only be used for known-small inputs. Large files should go
+/// through [`crate::parser::streaming::parse_path_streaming`] instead.
+pub fn parse_23andme(content: &str, detected_version: &str) -> Result<ParseResult, AppError> {
+    let mut sink = VecSink::default();
+    let mut reader = Cursor::new(content.as_bytes());
+    let summary = TwentyThreeParser.parse_streaming(&mut reader, &mut sink)?;
     Ok(ParseResult {
         format: detected_version.to_string(),
-        build,
-        total_lines,
-        skipped_lines,
-        snps,
+        build: summary.build,
+        total_lines: summary.total_lines,
+        skipped_lines: summary.skipped_lines,
+        snps: sink.snps,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE: &str = "# This data has been generated by 23andMe\n\
+# build 37\n\
+# rsid\tchromosome\tposition\tgenotype\n\
+rs4477212\t1\t82154\tAA\n\
+rs3094315\t1\t752566\tag\n\
+rs3131972\tchr1\t752721\t--\n\
+i5000000\tMT\t100\tG\n\
+rs12124819\t1\t776546\tGG\n";
+
+    #[test]
+    fn streaming_parses_synthetic_23andme() {
+        let mut sink = VecSink::default();
+        let mut reader = Cursor::new(SAMPLE.as_bytes());
+        let summary = TwentyThreeParser
+            .parse_streaming(&mut reader, &mut sink)
+            .unwrap();
+
+        // 5 data rows: one no-call ("--") is skipped → 4 kept.
+        assert_eq!(summary.snp_count, 4);
+        assert_eq!(sink.snps.len(), 4);
+        assert_eq!(summary.build.as_deref(), Some("GRCh37"));
+
+        // Genotype is upper-cased; "chr" prefix stripped from chromosome.
+        assert_eq!(sink.snps[1].genotype, "AG");
+        assert_eq!(sink.snps[0].chromosome, "1");
+        // The MT single-allele row is retained as-is.
+        assert_eq!(sink.snps[2].chromosome, "MT");
+        assert_eq!(sink.snps[2].genotype, "G");
+    }
+
+    #[test]
+    fn wrapper_matches_streaming() {
+        let result = parse_23andme(SAMPLE, "23andme_v5").unwrap();
+        assert_eq!(result.format, "23andme_v5");
+        assert_eq!(result.snps.len(), 4);
+        assert_eq!(result.build.as_deref(), Some("GRCh37"));
+    }
+
+    // Phase 1.4-cont: LivingDNA / tellmeGen / Genes for Good all use this exact
+    // 23andMe tab layout, so the same parser must handle their real-world quirks:
+    // I/D indel genotype notation and non-`rs` generic marker names (tellmeGen),
+    // and generic marker names (Genes for Good).
+    const TELLMEGEN: &str = "# tellmeGen raw data export\n\
+# reference build 37\n\
+# rsid\tchromosome\tposition\tgenotype\n\
+rs991757223\t1\t100177980\tDD\n\
+1KG_1_109440678\t1\t109440678\tII\n\
+rs750385149\t1\t109479801\tID\n\
+rs780371591\t1\t110655430\t--\n";
+
+    #[test]
+    fn parses_tellmegen_indels_and_generic_markers() {
+        let mut sink = VecSink::default();
+        let mut reader = Cursor::new(TELLMEGEN.as_bytes());
+        let summary = TwentyThreeParser
+            .parse_streaming(&mut reader, &mut sink)
+            .unwrap();
+
+        // 4 data rows, one no-call ("--") → 3 kept.
+        assert_eq!(summary.snp_count, 3);
+        assert_eq!(summary.build.as_deref(), Some("GRCh37"));
+
+        // I/D indel genotypes are preserved (upper-cased) verbatim.
+        assert_eq!(sink.snps[0].genotype, "DD");
+        assert_eq!(sink.snps[2].genotype, "ID");
+        // Non-`rs` generic marker names are kept as the rsID.
+        assert_eq!(sink.snps[1].rsid, "1KG_1_109440678");
+        assert_eq!(sink.snps[1].genotype, "II");
+        // Array-format invariants hold.
+        assert!(sink.snps[0].ref_allele.is_none());
+        assert!(sink.snps[0].sample.is_none());
+    }
 }

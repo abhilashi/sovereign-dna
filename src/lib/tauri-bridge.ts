@@ -10,6 +10,10 @@ export interface Genome {
   importedAt: string;
   snpCount: number;
   build: string | null;
+  // Phase 1.9 provenance (nullable for genomes imported before the migration).
+  sourceLabel?: string | null;
+  totalLines?: number | null;
+  skippedLines?: number | null;
 }
 
 // Matches Rust: commands::import::QualitySummary
@@ -26,6 +30,9 @@ export interface ImportResult {
   snpCount: number;
   format: string;
   build: string | null;
+  // Phase 1.9: human source label + provenance/quality warnings.
+  sourceLabel: string;
+  warnings: string[];
   qualitySummary: QualitySummary;
 }
 
@@ -52,6 +59,10 @@ export interface SnpRow {
   chromosome: string;
   position: number;
   genotype: string;
+  // Phase 1.3: VCF variant alleles + originating sample. Null for array formats.
+  refAllele?: string | null;
+  altAllele?: string | null;
+  sample?: string | null;
 }
 
 // Matches Rust: db::queries::AnnotatedSnp
