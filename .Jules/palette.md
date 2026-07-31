@@ -1,0 +1,3 @@
+## YYYY-MM-DD - [Hardcoded Accessibility Props Shadowing API]
+**Learning:** When conditionally adding accessibility attributes (e.g., `role`, `tabIndex`, `onKeyDown`) to an element (like a non-semantic `div` acting as a button) based on an internal state (like `!!onClick`), defining these properties in the component's TypeScript interface creates a misleading API. The parent component might try to pass its own `role`, but it will be silently ignored because the component hardcodes the attribute value.
+**Action:** Do not expose accessibility props in the component's `interface` if the component completely controls them internally and does not destructure or use the passed props. Only include them in the interface if the caller is expected to provide or override them.
