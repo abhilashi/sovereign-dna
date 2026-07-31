@@ -1,0 +1,3 @@
+## 2024-05-31 - Auto-focus inputs after Quick Prompt interactions
+**Learning:** When users interact with "Quick Prompts" or interactive elements (like Karyogram findings) that populate a query input but do not auto-submit, the input field loses focus. This creates a disjointed experience because the user must manually click into the input again to modify the query or press Enter to submit.
+**Action:** Automatically focus the primary text input (`setTimeout(() => inputRef.current?.focus(), 0)`) when quick prompts or similar text injectors are clicked. This seamlessly transitions the user from selecting a prompt to editing or submitting it.
