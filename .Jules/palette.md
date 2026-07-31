@@ -1,0 +1,3 @@
+## 2024-03-29 - Missing ARIA Labels on Icon-Only and Context-Light Buttons
+**Learning:** Found that the primary chat interface (`ResearchWorkbench.tsx`) used an icon (`→`) for the submit button and "OK" for the API key save button without any `aria-label` or accessible text. The main input field also lacked an explicit label or `aria-label`. This is a common pattern where visual context is relied upon, leaving screen reader users without clear interaction cues.
+**Action:** Always verify that interactive elements, especially those relying on icons or short text like "OK", have descriptive `aria-label` attributes (e.g., `aria-label="Submit query"`, `aria-label="Save API key"`). Ensure input fields without explicit `<label>` tags have an `aria-label`.
