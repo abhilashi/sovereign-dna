@@ -1,3 +1,4 @@
+mod agents;
 mod analysis;
 mod commands;
 mod db;
@@ -6,6 +7,7 @@ mod parser;
 mod reference;
 mod report;
 mod research;
+mod skills;
 
 use tauri::Manager;
 
@@ -104,6 +106,28 @@ pub fn run() {
             commands::workbench::get_workbench_sessions,
             commands::workbench::save_workbench_chat,
             commands::workbench::get_workbench_chat,
+            // Agents (Phase 3)
+            commands::agents::save_agent,
+            commands::agents::list_agents,
+            commands::agents::get_agent,
+            commands::agents::delete_agent,
+            commands::agents::run_agent_now,
+            commands::agents::get_agent_findings,
+            commands::agents::get_agent_runs,
+            commands::agents::get_agent_unseen_count,
+            commands::agents::mark_agent_finding_seen,
+            // Agent privacy & consent ledger (Phase 3.7)
+            commands::agents::grant_consent,
+            commands::agents::revoke_consent,
+            commands::agents::list_consents,
+            commands::agents::get_agent_ledger,
+            commands::agents::get_agent_egress_summary,
+            // Agent scheduler + safety (Phase 3.2 + 3.6)
+            commands::agents::record_agent_event,
+            commands::agents::list_due_agents,
+            commands::agents::get_agent_next_run,
+            commands::agents::run_due_agents,
+            commands::agents::preflight_egress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
