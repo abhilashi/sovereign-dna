@@ -1,0 +1,3 @@
+## 2024-04-25 - Auto-focus text inputs for quick actions
+**Learning:** When users click a quick action (like a suggested prompt or an interactive map finding) that populates an input field without auto-submitting, they expect to be able to immediately review, edit, or submit the query. Forcing them to manually click the input to get focus adds unnecessary friction.
+**Action:** When a UI element populates a main text input but waits for user confirmation (like in a chat interface), immediately focus the input (e.g. using `setTimeout(() => inputRef.current?.focus(), 0)`) so the user can just hit Enter or start typing.
