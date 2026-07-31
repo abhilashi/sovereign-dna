@@ -354,7 +354,7 @@ export default function GenomeMap({
     const newStart = clamp(center - newSpan / 2, minP, maxP);
     const newEnd = clamp(center + newSpan / 2, minP, maxP);
     const actualSpan = newEnd - newStart;
-    let newZoom: ZoomLevel = actualSpan <= SNP_THRESHOLD ? 'snp' : actualSpan <= REGION_THRESHOLD ? 'region' : 'chromosome';
+    const newZoom: ZoomLevel = actualSpan <= SNP_THRESHOLD ? 'snp' : actualSpan <= REGION_THRESHOLD ? 'region' : 'chromosome';
     setView({ zoom: newZoom, chromosome: view.chromosome, viewStart: newStart, viewEnd: newEnd });
   }, [view, chrMap]);
 
