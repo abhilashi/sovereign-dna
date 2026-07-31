@@ -435,7 +435,7 @@ export default function ResearchWorkbench() {
                   <p className="text-xs text-text-muted mb-4">Ask a question and we'll find your relevant variants, match them to research, and give you an analysis.</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {QUICK_PROMPTS.map(p => (
-                      <button key={p} onClick={() => { setQuery(p); }} disabled={loading}
+                      <button key={p} onClick={() => { setQuery(p); inputRef.current?.focus(); }} disabled={loading}
                         className="px-2.5 py-1 text-[10px] border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-50 transition-colors">{p}</button>
                     ))}
                   </div>
