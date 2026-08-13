@@ -1,0 +1,3 @@
+## 2024-08-13 - Interactive Card Accessibility
+**Learning:** `Card` component with `onClick` acts like a button but is rendered as a `div`, missing keyboard navigation and focus states. Adding `role="button"`, `tabIndex=0`, and `onKeyDown` ensures full keyboard support. Since `framer-motion`'s `motion.div` is used, spreading `interactiveProps` with typed `HTMLMotionProps` cleanly resolves this without changing the public props API.
+**Action:** When conditionally making non-semantic elements interactive, provide explicit accessibility attributes internally instead of pushing that responsibility to parent components.
