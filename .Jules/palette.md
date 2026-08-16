@@ -1,0 +1,3 @@
+## 2024-05-24 - Grouping conditionally interactive props for Framer Motion elements
+**Learning:** When adding accessibility attributes (`role`, `tabIndex`, `onKeyDown`) that are conditionally needed (e.g. when an `onClick` prop is provided) on a `framer-motion` element like `<motion.div>`, applying them inline can lead to cluttered JSX and difficulty handling type errors without type assertions.
+**Action:** Group these attributes into a typed object (like `HTMLMotionProps<"div">`) and conditionally populate it. Then spread that object onto the `<motion.div {...interactiveProps} >`. This pattern maintains clean JSX, correctly types the event handlers, and gracefully merges with Framer Motion properties natively.
