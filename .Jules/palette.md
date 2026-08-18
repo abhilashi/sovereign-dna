@@ -1,0 +1,3 @@
+## 2024-05-19 - Auto-focus inputs on quick prompt selection
+**Learning:** When building interfaces with "quick prompts" or clickable suggestions that populate an input field but do not auto-submit, it is crucial to automatically set the focus to the input field (`inputRef.current?.focus()`). This allows users to immediately review, modify, or submit the query without having to reposition their cursor manually, which significantly improves typing flow and accessibility.
+**Action:** When implementing quick prompts or clickable finding cards, wrap `inputRef.current?.focus()` in a `setTimeout(..., 0)` inside the `onClick` handler.
