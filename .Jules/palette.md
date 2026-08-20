@@ -1,0 +1,3 @@
+## 2024-08-20 - [Accessible Zoom Controls in GenomeMap]
+**Learning:** Icon-only UI elements, like '+' and '-' zoom buttons in visualizations, often miss descriptive labels and focus styles, leading to poor keyboard and screen reader accessibility. Additionally, dynamic text indicators (like zoom level) that update without receiving user focus need `aria-live` regions for proper announcement.
+**Action:** Always include `aria-label` and `title` attributes on icon-only buttons, ensure proper focus states (`focus-visible`), and apply `aria-live="polite"` to dynamically updating status text elements that don't take focus.
