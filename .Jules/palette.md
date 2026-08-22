@@ -1,0 +1,3 @@
+## 2026-08-22 - Auto-Focus Interactive Injectors
+**Learning:** When using interactive text injectors like 'Quick Prompts' or 'Karyogram findings' that populate a query input but intentionally do not auto-submit (to allow user editing), users can be left in an awkward state if the input isn't automatically focused. This requires an extra click before they can modify the query or press Enter.
+**Action:** When implementing interactive text injectors that do not auto-submit, always use a timeout (e.g., `setTimeout(() => inputRef.current?.focus(), 0)`) in the click handler to automatically focus the primary text input, creating a seamless editing experience.
