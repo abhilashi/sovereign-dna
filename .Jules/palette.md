@@ -1,0 +1,3 @@
+## 2024-05-24 - Accessible Framer Motion Elements
+**Learning:** When adding keyboard accessibility attributes (like `role`, `tabIndex`, `onKeyDown`) to conditionally interactive `framer-motion` elements (e.g., `motion.div`), they accept standard DOM attributes natively. Grouping these attributes into an `HTMLMotionProps<"div">` object and spreading them onto the component keeps the JSX clean and avoids exposing hardcoded internal properties in the component's public interface.
+**Action:** Use `HTMLMotionProps` spread pattern for conditionally interactive `motion` elements to ensure accessibility without cluttering the component's API.
