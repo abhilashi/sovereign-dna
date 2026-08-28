@@ -1,0 +1,4 @@
+
+## 2024-08-28 - Keyboard Accessibility for Interactive Non-Semantic Components
+**Learning:** When building custom interactive components using non-semantic HTML elements (like `motion.div` in `Card.tsx`) in this app, keyboard accessibility attributes (`role`, `tabIndex`, `onKeyDown`) were missing, preventing keyboard users from interacting with them.
+**Action:** Always provide `role="button"`, `tabIndex={0}`, an `onKeyDown` handler for 'Enter' and 'Space' (including `e.preventDefault()` for 'Space' to prevent page scrolling), and visible focus styling (`focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent`) for interactive non-semantic elements. Group them into a typed `HTMLMotionProps<"div">` object and spread it onto the component (e.g., `<motion.div {...interactiveProps} >`) to keep JSX maintainable.
