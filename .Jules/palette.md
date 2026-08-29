@@ -1,0 +1,5 @@
+## 2025-02-28 - Card Component Keyboard Accessibility
+
+**Learning:** When making a `div` element interactive using an `onClick` handler, it becomes inaccessible to keyboard users (who rely on `Tab`, `Enter`, and `Space`). Adding `role="button"`, `tabIndex={0}`, and an `onKeyDown` event handler correctly emulates a native button's accessibility. Furthermore, styling needs to include `focus:ring` or `focus:outline` to provide a clear visual indicator to keyboard users.
+
+**Action:** Whenever applying `onClick` to a non-interactive element like a `div`, always bundle it with `role="button"`, `tabIndex={0}`, and an `onKeyDown` handler that intercepts `Enter` and `Space` (using `e.preventDefault()` for `Space` to prevent page scrolling). Use Tailwind's `focus:outline-none focus:ring-1 focus:ring-accent` to provide visible focus feedback. In Framer Motion's `motion.div`, these accessibility attributes can be safely gathered into an `HTMLMotionProps<"div">` object and spread conditionally.
