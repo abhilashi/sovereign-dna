@@ -1,0 +1,3 @@
+## 2024-08-30 - ARIA Labels and aria-busy
+**Learning:** Adding descriptive ARIA labels to form elements like `input` and `select` is critical when a separate visual `<label>` tag isn't feasible in the layout. Applying `aria-busy={boolean}` alongside the `disabled` attribute for buttons during loading states (like async exports or submissions) is an excellent micro-UX improvement that provides immediate context to screen reader users about *why* the element is unresponsive.
+**Action:** Always check interactive elements in data-heavy views (tables, explorers, chats) to ensure they have accessible names via `aria-label` or `<label>` and explicitly convey async loading states via `aria-busy`.
