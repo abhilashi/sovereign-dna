@@ -102,6 +102,8 @@ export default function Explorer() {
             <button
               onClick={() => handleExport('csv')}
               disabled={exporting}
+              aria-label="Export SNPs as CSV"
+              aria-busy={exporting}
               className="px-3 py-1.5 text-xs border border-border rounded-sm text-text-muted hover:text-text hover:border-accent transition-colors duration-100 disabled:opacity-50"
             >
               Export CSV
@@ -109,6 +111,8 @@ export default function Explorer() {
             <button
               onClick={() => handleExport('json')}
               disabled={exporting}
+              aria-label="Export SNPs as JSON"
+              aria-busy={exporting}
               className="px-3 py-1.5 text-xs border border-border rounded-sm text-text-muted hover:text-text hover:border-accent transition-colors duration-100 disabled:opacity-50"
             >
               Export JSON
@@ -123,11 +127,13 @@ export default function Explorer() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search rsID, gene, or chromosome..."
+          aria-label="Search SNPs by rsID, gene, or chromosome"
           className="flex-1 px-3 py-2 text-sm border border-border rounded-sm bg-surface text-text placeholder:text-text-muted focus:outline-none focus:border-accent font-mono"
         />
         <select
           value={chromosomeFilter ?? ''}
           onChange={(e) => setChromosomeFilter(e.target.value || null)}
+          aria-label="Filter SNPs by chromosome"
           className="px-3 py-2 text-sm border border-border rounded-sm bg-surface text-text focus:outline-none focus:border-accent"
         >
           <option value="">All chromosomes</option>
@@ -164,6 +170,7 @@ export default function Explorer() {
               <button
                 onClick={() => setPage(Math.max(0, page - 1))}
                 disabled={page === 0}
+                aria-label="Previous page"
                 className="px-3 py-1 text-xs border border-border rounded-sm text-text-muted hover:text-text disabled:opacity-30 transition-colors"
               >
                 Previous
@@ -171,6 +178,7 @@ export default function Explorer() {
               <button
                 onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                 disabled={page >= totalPages - 1}
+                aria-label="Next page"
                 className="px-3 py-1 text-xs border border-border rounded-sm text-text-muted hover:text-text disabled:opacity-30 transition-colors"
               >
                 Next
@@ -199,6 +207,7 @@ export default function Explorer() {
                       </p>
                       <button
                         onClick={() => setSelectedSnp(null)}
+                        aria-label="Close SNP details"
                         className="text-xs text-text-muted hover:text-text"
                       >
                         Close
