@@ -1231,7 +1231,7 @@ export default function GenomeMap({
   return (
     <div
       ref={containerRef}
-      className="relative select-none outline-none"
+      className="relative select-none outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
       style={{ width: propWidth ? `${propWidth}px` : '100%', height: propHeight ? `${propHeight}px` : '100%', minHeight: 500 }}
       tabIndex={0}
       onKeyDown={handleKeyDown}
@@ -1353,7 +1353,9 @@ export default function GenomeMap({
         <button
           onClick={(e) => { e.stopPropagation(); zoomOut(); }}
           disabled={view.zoom === 'genome'}
-          className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors"
+          aria-label="Zoom out"
+          title="Zoom out"
+          className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           &minus;
         </button>
@@ -1363,7 +1365,9 @@ export default function GenomeMap({
         <button
           onClick={(e) => { e.stopPropagation(); zoomIn(); }}
           disabled={view.zoom === 'genome'}
-          className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors"
+          aria-label="Zoom in"
+          title="Zoom in"
+          className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           +
         </button>
