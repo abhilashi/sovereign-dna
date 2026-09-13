@@ -1,0 +1,4 @@
+
+## 2024-05-24 - Interactive Cards Accessibility
+**Learning:** `div` elements acting as interactive `Card` components with `onClick` handlers often lack keyboard accessibility. Providing semantic accessibility properties (`role="button"`, `tabIndex={0}`, `onKeyDown`) natively to `framer-motion`'s `motion.div` is an effective way to fix this without introducing complex wrappers.
+**Action:** When creating or modifying generic wrapper components (like Cards) that conditionally accept `onClick`, use `HTMLMotionProps<"div">` (or similar interface) to conditionally apply the correct semantic properties and focus rings, ensuring all keyboard users can easily interact with them. Only expose these props when they are truly necessary, instead managing them internally based on the presence of interactive callbacks.
