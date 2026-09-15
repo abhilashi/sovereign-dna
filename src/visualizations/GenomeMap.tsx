@@ -1354,6 +1354,8 @@ export default function GenomeMap({
           onClick={(e) => { e.stopPropagation(); zoomOut(); }}
           disabled={view.zoom === 'genome'}
           className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors"
+          aria-label="Zoom out"
+          title="Zoom out"
         >
           &minus;
         </button>
@@ -1364,6 +1366,8 @@ export default function GenomeMap({
           onClick={(e) => { e.stopPropagation(); zoomIn(); }}
           disabled={view.zoom === 'genome'}
           className="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text disabled:opacity-30 hover:bg-border transition-colors"
+          aria-label="Zoom in"
+          title="Zoom in"
         >
           +
         </button>
