@@ -1,0 +1,3 @@
+## 2024-05-24 - Interactive Framer Motion Accessibility
+**Learning:** When using Framer Motion's `<motion.div>` for custom interactive elements (like `Card`), conditionally applying accessibility props (`role`, `tabIndex`, `onKeyDown`) via object spread (`{...interactiveProps}`) keeps the JSX remarkably clean compared to inline ternaries. Also, remember to prevent the default action on the Space key to stop the page from scrolling down.
+**Action:** Use conditional prop spreading for dynamically interactive `framer-motion` components in the future to maintain readability while enforcing a11y standards.
