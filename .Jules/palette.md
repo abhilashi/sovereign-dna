@@ -1,0 +1,3 @@
+## 2024-06-25 - Interactive Card Accessibility
+**Learning:** In the design system, `Card` components with `onClick` handlers visually mimic buttons (via hover and click styling) but lack necessary HTML accessibility attributes and focus indicators, making them completely inaccessible to keyboard and screen reader users.
+**Action:** When creating or modifying generic layout components (like `Card` or `Box`) to be interactive (e.g., adding `onClick`), ensure you always add `role="button"`, `tabIndex={0}`, an `onKeyDown` handler to capture `Enter` and `Space`, and visual focus styles (e.g., `focus-visible:ring-1`).
