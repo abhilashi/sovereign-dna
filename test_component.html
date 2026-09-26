@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #000; color: #fff; padding: 20px; }
+    .bg-surface { background-color: #1a1a1a; }
+    .border-border { border-color: #333; }
+    .text-text { color: #fff; }
+    .text-text-muted { color: #a1a1aa; }
+    .ring-accent { --tw-ring-color: #3b82f6; }
+    .border-accent { border-color: #3b82f6; }
+    /* Mock focus-visible so we can trigger it in Playwright */
+    button.mock-focus {
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+      --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+      box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+      --tw-ring-color: #3b82f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="flex items-center gap-2 mt-10">
+    <button
+      id="zoom-out"
+      aria-label="Zoom out"
+      title="Zoom out"
+      class="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text hover:bg-border transition-colors focus-visible:ring-1 focus-visible:ring-accent focus:outline-none"
+    >
+      &minus;
+    </button>
+    <span class="text-xs text-text-muted font-mono px-1" style="min-width: 80px; text-align: center;" aria-live="polite" aria-atomic="true">
+      Chromosome
+    </span>
+    <button
+      id="zoom-in"
+      aria-label="Zoom in"
+      title="Zoom in"
+      class="w-6 h-6 flex items-center justify-center text-xs border border-border rounded-sm bg-surface text-text hover:bg-border transition-colors focus-visible:ring-1 focus-visible:ring-accent focus:outline-none"
+    >
+      +
+    </button>
+  </div>
+</body>
+</html>

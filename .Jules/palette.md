@@ -1,0 +1,3 @@
+## 2024-11-20 - Accessible Zoom Controls
+**Learning:** Icon-only zoom buttons (+/-) without ARIA labels are inaccessible to screen readers, and dynamically updated state (like zoom level text) without `aria-live` is not announced. Furthermore, adding `focus-visible` classes improves keyboard accessibility visibility.
+**Action:** When creating icon-only interactive controls (e.g., zoom controls in visualizations), ensure they include `aria-label` and `title` attributes. Provide focus visibility via `focus-visible:ring-1 focus-visible:ring-accent focus:outline-none`. Wrap the dynamic status text showing the outcome of those controls with `aria-live="polite"` and `aria-atomic="true"` so state changes are announced contextually.
