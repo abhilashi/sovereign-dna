@@ -1,0 +1,3 @@
+## 2024-05-24 - Grouping A11y Props for Interactive Components
+**Learning:** When making wrapper components (like `Card.tsx`) interactive only when a callback (like `onClick`) is provided, conditionally applying a11y attributes (`role`, `tabIndex`, `onKeyDown`) can clutter JSX. Furthermore, exposing these internal state-derived accessibility props in the component's interface creates a misleading API.
+**Action:** Group conditionally applied accessibility attributes into a typed object (like `HTMLMotionProps<"div">`) and spread it on the element. Do not expose these internal conditional props in the component's interface unless the caller specifically needs to override them.
