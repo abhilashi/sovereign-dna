@@ -1,0 +1,3 @@
+## 2025-02-12 - Added accessibility attributes to Genome Map zoom controls
+**Learning:** Found that the icon-only zoom buttons (+ and -) in the interactive Genome Map lacked accessible names, making them difficult to understand for screen reader users. Additionally, the textual zoom level indicator ("Genome", "Chromosome", etc.) changed dynamically without notifying assistive technologies. Also discovered a bug where the zoom-in button was incorrectly using `disabled={view.zoom === 'genome'}` instead of `'snp'`.
+**Action:** Added `aria-label` and `title` to the zoom buttons. Added `aria-live="polite"` and `aria-atomic="true"` to the zoom level indicator so users are informed of zoom state changes.
