@@ -1,0 +1,3 @@
+## 2024-10-02 - Icon-only Zoom Button Accessibility in GenomeMap
+**Learning:** Icon-only zoom controls (`+` and `-`) without labels are opaque to screen reader users, and dynamically changing zoom states must be announced. Adding standard `aria-label`s and wrapping the state indicator in an `aria-live="polite"` region significantly improves the genomic navigation experience.
+**Action:** When implementing custom visual tools (like genome browsers) with standard controls (zoom, pan), always explicitly define interactive states with ARIA and ensure dynamic state labels use `aria-live` to maintain context.
