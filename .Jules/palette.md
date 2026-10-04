@@ -1,0 +1,3 @@
+## 2024-10-04 - Accessible Zoom Controls
+**Learning:** Icon-only UI elements, like zoom controls (+ and -), must have descriptive `aria-label` and `title` attributes for screen reader accessibility and tooltip usability. When the UI updates dynamically to reflect a state change without a page reload (e.g., displaying the current zoom level as 'Genome', 'Chromosome', 'Region', 'SNP'), wrapping the indicator with `aria-live="polite"` and `aria-atomic="true"` ensures the update is announced properly.
+**Action:** Always verify icon-only buttons include `aria-label` and `title`, and dynamic status indicators use `aria-live` attributes to maintain screen reader context.
