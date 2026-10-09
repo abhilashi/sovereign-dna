@@ -1,0 +1,4 @@
+
+## 2023-10-25 - Interactive Div Accessibility
+**Learning:** When using Framer Motion's `motion.div` as an interactive component (like the Card component with an onClick handler), it requires manual keyboard accessibility implementations (role, tabIndex, onKeyDown) that would normally be provided by a standard `<button>`. Using `focus-visible:ring` is preferable to just `:focus` to ensure mouse clicks don't cause an unnecessary focus ring, improving visual UX. Furthermore, `motion.div` passes standard HTML attributes seamlessly, meaning we don't need to manually expose `tabIndex` or `role` on our `CardProps` unless we explicitly want consumers to override them.
+**Action:** When building interactive components based on `div` or `motion.div`, always explicitly add `role="button"`, `tabIndex={0}`, and `onKeyDown` handlers for `Enter` and `Space`, along with `focus-visible` styling for keyboard navigation.
