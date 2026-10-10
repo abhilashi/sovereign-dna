@@ -1,0 +1,3 @@
+## 2026-10-10 - Card Component Keyboard Accessibility
+**Learning:** In highly reusable container components like `Card` that optionally accept an `onClick` handler, the `cursor-pointer` class alone is insufficient for accessibility. Mouse users see an affordance, but keyboard users cannot interact with it because standard `<div>` elements are not in the focus order.
+**Action:** When a generic wrapper like `Card` becomes interactive, always conditionally assign `role="button"`, `tabIndex={0}`, an `onKeyDown` handler for 'Enter' and 'Space' (with `e.preventDefault()` on Space to prevent scrolling), and clear visible focus styles (e.g., `focus-visible:ring-1 focus-visible:ring-accent focus:outline-none`) so it behaves indistinguishably from a native `<button>` element.
