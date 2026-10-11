@@ -1,0 +1,3 @@
+## 2024-10-11 - Interactive Card Keyboard Accessibility & Focus
+**Learning:** In Framer Motion components (like `motion.div`), bundling conditional accessibility attributes (like `role`, `tabIndex`, and `onKeyDown`) into an explicitly typed `HTMLMotionProps<"div">` object is an effective pattern for maintaining clean JSX while enforcing robust A11y on custom interactive elements.
+**Action:** When creating custom interactive elements (like clickable Cards) out of non-semantic HTML tags, ensure they have `role="button"`, `tabIndex={0}`, keyboard event handlers (for Enter/Space), and visible focus styling (e.g. `focus-visible:ring-1 focus-visible:ring-accent focus:outline-none`) to provide full keyboard accessibility.
