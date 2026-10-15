@@ -1,0 +1,3 @@
+## 2024-10-15 - Interactive Text Injectors UX
+**Learning:** When implementing "Quick Prompts" or interactive text injectors (like Karyogram findings) in chat-like interfaces that populate an input but do not auto-submit, it is crucial to automatically focus the primary text input. Without this, users experience friction as they must manually click the input to press Enter or modify the query.
+**Action:** Automatically focus the text input (e.g., using `setTimeout(() => inputRef.current?.focus(), 0)`) when these interactive elements are clicked, ensuring `inputRef` is correctly attached to prevent errors.
