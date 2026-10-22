@@ -82,12 +82,25 @@ export default function DataTable({
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const row = filteredData[virtualRow.index];
               const isEven = virtualRow.index % 2 === 0;
+
+              const interactiveProps = onRowClick ? {
+                role: 'button',
+                tabIndex: 0,
+                onKeyDown: (e: React.KeyboardEvent) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === ' ') e.preventDefault();
+                    onRowClick(row, virtualRow.index);
+                  }
+                }
+              } : {};
+
               return (
                 <div
                   key={virtualRow.index}
+                  {...interactiveProps}
                   className={`flex items-center absolute w-full ${
                     isEven ? 'bg-surface' : 'bg-[#F5F5F3]'
-                  } ${onRowClick ? 'cursor-pointer hover:bg-border/40' : ''}`}
+                  } ${onRowClick ? 'cursor-pointer hover:bg-border/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent' : ''}`}
                   style={{
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
