@@ -1,0 +1,3 @@
+## 2024-10-24 - Interactive Text Injectors Focus Management
+**Learning:** When users click a quick prompt or interactive element that populates an input without auto-submitting, they expect to be able to hit 'Enter' immediately or continue typing without repositioning focus manually with their mouse or keyboard. Forgetting to focus the text input creates a disjointed user experience.
+**Action:** When implementing 'Quick Prompts' or text injectors that populate an input but do not auto-submit, use `setTimeout(() => inputRef.current?.focus(), 0)` (or equivalent) to seamlessly transition focus back to the primary text input. Always verify that `inputRef` is explicitly attached to the target `<input>` element.
