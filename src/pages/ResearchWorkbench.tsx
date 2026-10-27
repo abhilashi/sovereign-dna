@@ -560,7 +560,7 @@ export default function ResearchWorkbench() {
 
         {/* Input bar */}
         <div className="border-t border-border px-4 py-2.5 flex items-center gap-2 shrink-0">
-          <span className="w-4 h-4 rounded-full bg-risk-low flex items-center justify-center shrink-0" title="Processed locally">
+          <span className="w-4 h-4 rounded-full bg-risk-low flex items-center justify-center shrink-0" title="Processed locally" aria-label="Processed locally">
             <span className="text-white text-[7px]">{'\uD83D\uDD12'}</span>
           </span>
           <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
@@ -568,7 +568,9 @@ export default function ResearchWorkbench() {
             disabled={loading || streaming}
             className="flex-1 text-sm bg-transparent outline-none text-text placeholder:text-text-muted disabled:opacity-50" />
           <button onClick={handleSubmit} disabled={loading || streaming || !query.trim()}
-            className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors">{'\u2192'}</button>
+            aria-label="Submit query"
+            title="Submit query"
+            className="px-2.5 py-1 text-sm border border-border rounded-sm text-text-muted hover:text-accent hover:border-accent disabled:opacity-30 transition-colors focus-visible:ring-1 focus-visible:ring-accent focus:outline-none">{'\u2192'}</button>
         </div>
       </div>
     </div>
