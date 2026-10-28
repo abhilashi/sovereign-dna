@@ -1,0 +1,3 @@
+## 2024-10-28 - Focus management for interactive text injectors
+**Learning:** When implementing 'Quick Prompts' or interactive text injectors (like Karyogram findings) in chat-like interfaces that populate an input but do not auto-submit, failing to auto-focus the input forces the user to manually click into it before they can hit Enter or make edits.
+**Action:** Automatically focus the primary text input (e.g., using `setTimeout(() => inputRef.current?.focus(), 0)`) when these elements are clicked. This allows users to immediately press Enter or seamlessly modify the query without repositioning focus manually. Always verify that `inputRef` is correctly declared and explicitly attached to the target `<input>` element to prevent errors.
