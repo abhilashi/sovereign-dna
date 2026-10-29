@@ -1,0 +1,3 @@
+## 2025-02-28 - Adding keyboard accessibility to interactive Framer Motion wrapper components
+**Learning:** When adding keyboard handlers (`onKeyDown`) and accessibility attributes (`role="button"`, `tabIndex={0}`) dynamically to an interactive `<motion.div>` in Framer Motion, it's safer and cleaner to group these attributes into a typed `HTMLMotionProps<"div">` object and spread it onto the component conditionally. This avoids cluttering the JSX, handles type safety gracefully, and ensures keyboard users can focus and activate elements designed only for mouse clicks by default.
+**Action:** Use conditional property spreading with `HTMLMotionProps<"div">` in future interactive UI components wrapping `<motion.div>` to implement `tabIndex`, `role`, and `onKeyDown` cleanly.
