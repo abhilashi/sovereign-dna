@@ -1,0 +1,3 @@
+## 2024-10-30 - Accessible Interactive Divs with Framer Motion
+**Learning:** When using Framer Motion's `motion.div` for interactive elements (like custom Cards) that act as buttons, standard HTML accessibility attributes (`role`, `tabIndex`, `onKeyDown`) can be passed directly. Grouping these into an `HTMLMotionProps<"div">` object and spreading them conditionally prevents type errors and keeps the component's API clean (i.e., not exposing these attributes on the generic component's Props if they're handled internally).
+**Action:** Group accessibility attributes into an `HTMLMotionProps<"div">` object and spread them onto `motion.div` when creating custom interactive elements.
