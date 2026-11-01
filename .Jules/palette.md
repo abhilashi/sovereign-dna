@@ -1,0 +1,3 @@
+## 2026-11-01 - Add accessibility to custom interactive zooming components
+**Learning:** When adding accessibility to interactive visualization controls (like GenomeMap zoom out/in non-semantic UI buttons), focus-visible:ring-1 focus-visible:ring-accent focus:outline-none allows proper keyboard navigation without disrupting mouse clicks. Additionally, ensuring text that updates (like Zoom level label) receives aria-live=polite ensures screen readers read state changes.
+**Action:** Apply keyboard focus states correctly to elements implementing custom onClick behaviors that lack native focus states, and use aria-live for non-reloading status elements.
