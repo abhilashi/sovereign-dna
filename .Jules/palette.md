@@ -1,0 +1,3 @@
+## 2024-11-02 - Accessible Custom Components with Framer Motion
+**Learning:** When building interactive components (like `Card`) using non-semantic elements such as `motion.div`, it is critical to implement keyboard navigation (Enter/Space support), ARIA roles, and clear focus styling for accessibility.
+**Action:** Group accessibility attributes (`role`, `tabIndex`, `onKeyDown`) into an `HTMLMotionProps<"div">` object and spread them conditionally onto the Framer Motion component. Ensure focus-visible Tailwind classes (`focus-visible:ring-1 focus-visible:ring-accent focus:outline-none`) are included to provide visual feedback for keyboard users.
